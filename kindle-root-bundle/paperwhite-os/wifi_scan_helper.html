@@ -1,0 +1,21 @@
+<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.setLipcProperty("com.lab126.wifid", "scan", "");
+      nativeBridge.accessHasharrayProperty("com.lab126.transfer", "request_upload", {
+        url: "http://127.0.0.1",
+        source_command: "wpa_cli -i wlan0 scan && sleep 1 && /bin/sh /mnt/us/paperwhite-os/scan_books.sh",
+        unique_id: "pwos_wifi_scan",
+        netid: 1,
+        priority: 50,
+        notify_progress_interval: 20,
+        notify_pub: "com.lab126.archive",
+        notify_prop: "transferProgressNotification"
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 120);
+  }
+};
+</script></head><body></body></html>

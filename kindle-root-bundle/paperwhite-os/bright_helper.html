@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.registerClientParamsCallback(function(params) {
+        try {
+          var p = (typeof params === "string") ? JSON.parse(params) : params;
+          if (p && typeof p.level !== "undefined") {
+            nativeBridge.setIntLipcProperty("com.lab126.powerd", "flIntensity", parseInt(p.level, 10));
+          }
+        } catch (err) {}
+        try { nativeBridge.dismissMe(); } catch (err2) {}
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 150);
+  }
+};
+</script></head><body></body></html>

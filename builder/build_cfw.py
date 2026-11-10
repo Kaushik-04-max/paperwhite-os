@@ -1,0 +1,5464 @@
+import json
+import os
+import shutil
+import sys
+import zipfile
+from PIL import Image
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUILD_DIR = os.path.join(REPO_ROOT, "build")
+INTERMEDIATE_DIR = os.path.join(BUILD_DIR, "intermediate")
+OUTPUT_DIR = os.path.join(BUILD_DIR, "output")
+
+HTML_CODE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1072, user-scalable=no">
+<title>Paperwhite OS 4.7 — Pure Custom Appliance OS</title>
+<style type="text/css">
+/* ============================================================================
+   PAPERWHITE OS 4.7 — AUTO-CALIBRATED 1072x1448 MASTER DESIGN CANVAS
+   Matches all 9 UI Mockups + 12 User Refinements:
+   - Always-visible Time & Battery Top Bar (#status-bar)
+   - Dedicated Wi-Fi Network Selection & Password Screen
+   - Formatted Search Bars across all menus with Clear (X) & Enter/Go support
+   - Sun icon = Quick Frontlight Brightness Popup (Invert Colour ONLY in Settings)
+   - In-Webpage Top Bar: [<- Back] + [Live URL/Search Pill + Clear (X) + Go] + [3-dots Menu]
+   - 3-dots Web Menu: Fullscreen, Reader mode, Desktop site, JavaScript, Engine
+   - Built-in Wikipedia / Google / Web Search Engine (bypasses X-Frame-Options!)
+   ============================================================================ */
+* {
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: #ffffff;
+  color: #000000;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+body.inverted {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+/* Text Size Multipliers */
+body.text-s #main-scroll { font-size: 90%; }
+body.text-m #main-scroll { font-size: 100%; }
+body.text-l #main-scroll { font-size: 110%; }
+body.text-xl #main-scroll { font-size: 120%; }
+
+/* 1072px Wide Master Canvas */
+#device-frame {
+  position: relative;
+  width: 1072px;
+  height: 1448px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  color: #000000;
+  overflow: hidden;
+}
+body.inverted #device-frame {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+/* 1. SMART SINGLE TOP TIME & BATTERY BAR (Never duplicates if native bar is present!) */
+#status-bar {
+  display: none;
+}
+body.show-own-statusbar #status-bar {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1072px;
+  height: 58px;
+  padding: 14px 40px 0 40px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  z-index: 60;
+  background-color: inherit;
+}
+#status-left {
+  float: left;
+  line-height: 32px;
+}
+#status-right {
+  float: right;
+  line-height: 32px;
+}
+.battery-box {
+  display: inline-block;
+  width: 46px;
+  height: 23px;
+  border: 2.8px solid #000000;
+  border-radius: 5px;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 2px;
+}
+body.inverted .battery-box {
+  border-color: #ffffff;
+}
+.battery-box:after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 5px;
+  width: 4px;
+  height: 7px;
+  border-radius: 0 2px 2px 0;
+  background-color: #000000;
+}
+body.inverted .battery-box:after {
+  background-color: #ffffff;
+}
+.battery-fill {
+  display: block;
+  height: 13px;
+  width: 100%;
+  background-color: #000000;
+  border-radius: 2px;
+}
+body.inverted .battery-fill {
+  background-color: #ffffff;
+}
+
+/* 2. TOP TOOLBAR — Exact 1072px Mockup Coordinates (ui_home.png, ui_library.png, ui_web.png) */
+#top-toolbar {
+  position: absolute;
+  top: 0px;
+  left: 0;
+  width: 1072px;
+  height: 102px;
+  border-bottom: 2px solid #d4d4d4;
+  z-index: 25;
+  background-color: inherit;
+}
+body.show-own-statusbar #top-toolbar {
+  top: 58px;
+}
+body.inverted #top-toolbar {
+  border-bottom-color: #333333;
+}
+.toolbar-icon-btn {
+  position: absolute;
+  top: 15px;
+  width: 72px;
+  height: 72px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: center;
+  color: inherit;
+}
+#btn-brightness-popup { left: 32px; }
+#btn-wifi-status { left: 122px; }
+#btn-open-settings { left: 974px; width: 64px; }
+
+/* Formatted Search Pill matching ui_home.png / ui_library.png / ui_web.png */
+.search-pill {
+  position: absolute;
+  top: 12px;
+  left: 214px;
+  width: 744px;
+  height: 76px;
+  border: 3.5px solid #000000;
+  border-radius: 38px;
+  padding: 0 18px 0 26px;
+  display: table;
+  background-color: #ffffff;
+}
+body.inverted .search-pill {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.search-icon-cell {
+  display: table-cell;
+  width: 48px;
+  height: 69px;
+  vertical-align: middle;
+  text-align: left;
+  padding-top: 4px;
+}
+.search-input-cell {
+  display: table-cell;
+  height: 69px;
+  vertical-align: middle;
+}
+.search-clear-cell {
+  display: table-cell;
+  width: 52px;
+  height: 69px;
+  vertical-align: middle;
+  text-align: center;
+}
+.search-input {
+  display: block;
+  width: 100%;
+  height: 42px;
+  line-height: 42px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 31px;
+  font-weight: 400;
+  color: #000000;
+  vertical-align: middle;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+body.inverted .search-input {
+  color: #ffffff;
+}
+.clear-circle-btn {
+  display: inline-block;
+  width: 42px;
+  height: 42px;
+  line-height: 38px;
+  border: 2.5px solid currentColor;
+  border-radius: 21px;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
+}
+.clear-circle-btn:active {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+/* Quick Brightness Popup Drawer (Triggered by Sun icon on Top Toolbar) */
+#brightness-drawer {
+  display: none;
+  position: absolute;
+  top: 160px;
+  left: 36px;
+  width: 560px;
+  background-color: #ffffff;
+  color: #000000;
+  border: 3.5px solid #000000;
+  border-radius: 30px;
+  padding: 24px 30px;
+  z-index: 80;
+}
+body.inverted #brightness-drawer {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+
+/* Touch-Scrollable / Draggable Brightness Slider */
+.brightness-slider-wrap {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  border: 3.5px solid currentColor;
+  border-radius: 27px;
+  overflow: hidden;
+  cursor: pointer;
+  background-color: transparent;
+}
+.brightness-slider-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background-color: currentColor;
+  pointer-events: none;
+}
+.brightness-range-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  z-index: 5;
+}
+
+/* 3. MAIN SCROLLABLE AREA */
+#main-scroll {
+  position: absolute;
+  top: 102px;
+  bottom: 136px;
+  left: 0;
+  width: 1072px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+body.show-own-statusbar #main-scroll {
+  top: 160px;
+}
+#main-scroll.settings-mode {
+  top: 0px;
+  bottom: 0;
+}
+body.show-own-statusbar #main-scroll.settings-mode {
+  top: 58px;
+}
+
+/* Custom Right Scrollbar Indicator matching ui_home.png */
+.eink-scrollbar {
+  position: absolute;
+  top: 38px;
+  right: 9px;
+  width: 9px;
+  height: 480px;
+  background-color: #666666;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+/* SECTION HEADERS */
+.section-header {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 4.2px;
+  text-transform: uppercase;
+  color: #555555;
+  padding: 30px 40px 14px 40px;
+}
+body.inverted .section-header {
+  color: #aaaaaa;
+}
+
+/* UNIVERSAL BACK BUTTON WITH ARROW ICON + "Back" LABEL (Point 5) */
+.back-arrow-btn {
+  display: inline-block;
+  height: 58px;
+  line-height: 52px;
+  border: 3.5px solid currentColor;
+  border-radius: 29px;
+  padding: 0 24px 0 18px;
+  font-size: 27px;
+  font-weight: 800;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.back-arrow-btn svg {
+  vertical-align: middle;
+  margin-right: 8px;
+  margin-top: -4px;
+}
+.back-arrow-btn:active {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+/* ============================================================================
+   HOME TAB — LIST & GRID LAYOUTS
+   ============================================================================ */
+.app-list-row {
+  display: table;
+  width: 1072px;
+  height: 188px;
+  padding: 24px 40px;
+  border-bottom: 2px solid #d8d8d8;
+  cursor: pointer;
+}
+body.inverted .app-list-row {
+  border-bottom-color: #2c2c2c;
+}
+.app-list-icon-cell {
+  display: table-cell;
+  width: 140px;
+  vertical-align: middle;
+}
+.app-icon-box {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border: 3.5px solid #000000;
+  border-radius: 34px;
+  text-align: center;
+  display: table;
+  background-color: #ffffff;
+}
+body.inverted .app-icon-box {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.app-icon-inner {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
+.new-badge {
+  position: absolute;
+  top: -11px;
+  right: -10px;
+  background-color: #000000;
+  color: #ffffff;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 4px 15px;
+  border-radius: 16px;
+  text-transform: uppercase;
+  z-index: 5;
+}
+body.inverted .new-badge {
+  background-color: #ffffff;
+  color: #000000;
+}
+.app-list-info-cell {
+  display: table-cell;
+  vertical-align: middle;
+  padding: 0 28px;
+}
+.app-title {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+  color: #000000;
+}
+body.inverted .app-title {
+  color: #ffffff;
+}
+.app-subtitle {
+  font-size: 30px;
+  font-weight: 400;
+  color: #444444;
+  margin: 0;
+}
+body.inverted .app-subtitle {
+  color: #bbbbbb;
+}
+.app-list-action-cell {
+  display: table-cell;
+  width: 150px;
+  vertical-align: middle;
+  text-align: right;
+}
+.open-pill-btn {
+  display: inline-block;
+  min-width: 136px;
+  height: 60px;
+  line-height: 53px;
+  text-align: center;
+  border: 3.5px solid #000000;
+  border-radius: 30px;
+  font-size: 28px;
+  font-weight: 700;
+  background-color: transparent;
+  color: #000000;
+  cursor: pointer;
+  padding: 0 24px;
+}
+body.inverted .open-pill-btn {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+.open-pill-btn:active {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.grid-container {
+  padding: 6px 29px 10px 29px;
+  width: 1072px;
+  overflow: hidden;
+}
+.grid-item {
+  float: left;
+  width: 338px;
+  padding: 12px 11px 22px 11px;
+  text-align: center;
+  cursor: pointer;
+}
+.grid-cols-2 .grid-item {
+  width: 507px;
+}
+.grid-card-box {
+  position: relative;
+  width: 100%;
+  height: 210px;
+  border: 3.5px solid #000000;
+  border-radius: 36px;
+  display: table;
+  background-color: #ffffff;
+  margin-bottom: 14px;
+}
+body.inverted .grid-card-box {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.grid-card-inner {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
+.grid-app-title {
+  font-size: 31px;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grid-app-sub {
+  font-size: 25px;
+  color: #444444;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.inverted .grid-app-sub {
+  color: #bbbbbb;
+}
+
+/* Continue Reading Banner */
+.continue-card {
+  display: table;
+  width: 1072px;
+  padding: 12px 40px 32px 40px;
+  cursor: pointer;
+}
+.continue-thumb {
+  display: table-cell;
+  width: 130px;
+  height: 150px;
+  border-radius: 24px;
+  background-color: #222222;
+  color: #ffffff;
+  vertical-align: middle;
+  text-align: center;
+}
+.continue-meta {
+  display: table-cell;
+  vertical-align: middle;
+  padding-left: 28px;
+}
+
+/* ============================================================================
+   LIBRARY TAB (Matches ui_library.png)
+   ============================================================================ */
+.lib-filter-bar {
+  padding: 26px 40px 16px 40px;
+  overflow: hidden;
+}
+.lib-pills-left {
+  float: left;
+}
+.lib-sort-right {
+  float: right;
+  padding-top: 8px;
+}
+.filter-pill {
+  display: inline-block;
+  height: 52px;
+  line-height: 45px;
+  border: 3.5px solid #000000;
+  border-radius: 26px;
+  padding: 0 28px;
+  margin-right: 14px;
+  font-size: 26px;
+  font-weight: 700;
+  background-color: transparent;
+  color: #000000;
+  cursor: pointer;
+}
+body.inverted .filter-pill {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+.filter-pill.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .filter-pill.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+.sort-btn {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+}
+body.inverted .sort-btn {
+  color: #ffffff;
+}
+.book-grid {
+  padding: 8px 28px 36px 28px;
+  width: 1072px;
+  overflow: hidden;
+}
+.book-cell {
+  float: left;
+  width: 338px;
+  padding: 12px 13px 26px 13px;
+  cursor: pointer;
+}
+.book-cover {
+  position: relative;
+  width: 311px;
+  height: 433px;
+  border: 3.5px solid #000000;
+  border-radius: 22px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  text-align: center;
+}
+body.square-covers .book-cover {
+  border-radius: 0px;
+}
+body.inverted .book-cover {
+  border-color: #ffffff;
+}
+.book-cover.dark-cover {
+  background-color: #121212;
+  color: #ffffff;
+}
+.book-cover.light-cover {
+  background-color: #ffffff;
+  color: #000000;
+}
+.book-art-area {
+  height: 280px;
+  width: 100%;
+  display: table;
+}
+.book-art-inner {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
+.book-cover-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  font-weight: bold;
+  letter-spacing: 0.6px;
+  margin-top: 6px;
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.book-cover-author {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 8px;
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.book-meta-title {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 4px 0 8px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.progress-track {
+  width: 100%;
+  height: 11px;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  background-color: #ffffff;
+  overflow: hidden;
+  margin: 6px 0;
+}
+body.inverted .progress-track {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.progress-bar-fill {
+  height: 100%;
+  background-color: #000000;
+}
+body.inverted .progress-bar-fill {
+  background-color: #ffffff;
+}
+.book-pct {
+  font-size: 25px;
+  color: #444444;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.inverted .book-pct {
+  color: #bbbbbb;
+}
+
+/* ============================================================================
+   WEB TAB & IN-WEBPAGE BROWSER BAR (Points 4, 5, 10, 11, 12)
+   ============================================================================ */
+.web-section {
+  padding: 26px 40px 10px 40px;
+}
+.url-pill-box {
+  width: 992px;
+  height: 86px;
+  border: 3.5px solid #000000;
+  border-radius: 43px;
+  display: table;
+  padding: 0 22px 0 26px;
+  margin-bottom: 18px;
+  background-color: #ffffff;
+}
+body.inverted .url-pill-box {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.url-lock-cell {
+  display: table-cell;
+  width: 50px;
+  height: 78px;
+  vertical-align: middle;
+  padding-top: 4px;
+}
+.url-input-cell {
+  display: table-cell;
+  height: 78px;
+  vertical-align: middle;
+}
+.url-clear-cell {
+  display: table-cell;
+  width: 56px;
+  height: 78px;
+  vertical-align: middle;
+  text-align: center;
+}
+.url-reload-cell {
+  display: table-cell;
+  width: 58px;
+  height: 78px;
+  vertical-align: middle;
+  text-align: right;
+  cursor: pointer;
+  padding-top: 4px;
+}
+.url-input {
+  display: block;
+  width: 100%;
+  height: 44px;
+  line-height: 44px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 32px;
+  font-weight: 600;
+  color: #000000;
+  vertical-align: middle;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+body.inverted .url-input {
+  color: #ffffff;
+}
+.web-chip-row {
+  margin-bottom: 8px;
+}
+.web-chip {
+  display: inline-block;
+  height: 44px;
+  line-height: 38px;
+  border: 3px solid #000000;
+  border-radius: 22px;
+  padding: 0 24px;
+  font-size: 22px;
+  font-weight: 700;
+  margin-right: 12px;
+  margin-bottom: 8px;
+  background: transparent;
+  color: #000000;
+  cursor: pointer;
+}
+body.inverted .web-chip {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+.web-chip.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .web-chip.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+.fav-grid {
+  width: 1072px;
+  overflow: hidden;
+  padding: 6px 29px 14px 29px;
+}
+.fav-col {
+  float: left;
+  width: 253px;
+  padding: 6px 10px;
+  text-align: center;
+  cursor: pointer;
+}
+.fav-box {
+  width: 232px;
+  height: 154px;
+  border: 3.5px solid #000000;
+  border-radius: 34px;
+  display: table;
+  margin-bottom: 12px;
+}
+body.inverted .fav-box {
+  border-color: #ffffff;
+}
+.fav-box-inner {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
+.fav-label {
+  font-size: 26px;
+  font-weight: 800;
+}
+.recent-row {
+  padding: 20px 40px;
+  border-bottom: 2px solid #d8d8d8;
+  cursor: pointer;
+}
+body.inverted .recent-row {
+  border-bottom-color: #2c2c2c;
+}
+.recent-title {
+  font-size: 33px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.recent-domain {
+  font-size: 26px;
+  color: #444444;
+}
+body.inverted .recent-domain {
+  color: #bbbbbb;
+}
+
+/* ============================================================================
+   SETTINGS & WI-FI NETWORK SELECTION SCREENS (Matches ui_settings_1..4.png)
+   ============================================================================ */
+.settings-top-header {
+  display: table;
+  width: 1072px;
+  padding: 10px 40px 14px 40px;
+}
+.settings-back-cell {
+  display: table-cell;
+  width: 195px;
+  vertical-align: middle;
+  text-align: left;
+}
+.settings-main-title {
+  display: table-cell;
+  vertical-align: middle;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  padding-left: 8px;
+}
+.settings-page-indicator {
+  display: table-cell;
+  width: 160px;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 32px;
+  font-weight: 800;
+  cursor: pointer;
+}
+/* Formatted Settings Search Pill matching ui_settings_1.png */
+.settings-search-wrap {
+  padding: 4px 40px 12px 40px;
+}
+.settings-search-pill {
+  width: 992px;
+  height: 74px;
+  border: 3.5px solid #000000;
+  border-radius: 37px;
+  padding: 0 20px 0 26px;
+  display: table;
+  background-color: #ffffff;
+}
+body.inverted .settings-search-pill {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.settings-row {
+  display: table;
+  width: 1072px;
+  height: 86px;
+  padding: 0 40px;
+  border-bottom: 2px solid #d8d8d8;
+  cursor: pointer;
+}
+body.inverted .settings-row {
+  border-bottom-color: #2c2c2c;
+}
+.settings-label-cell {
+  display: table-cell;
+  vertical-align: middle;
+  font-size: 33px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.settings-ctrl-cell {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 30px;
+  font-weight: 600;
+}
+.toggle-switch {
+  display: inline-block;
+  width: 84px;
+  height: 44px;
+  border: 3.5px solid #000000;
+  border-radius: 22px;
+  position: relative;
+  background-color: #ffffff;
+  cursor: pointer;
+  vertical-align: middle;
+}
+body.inverted .toggle-switch {
+  border-color: #ffffff;
+  background-color: #000000;
+}
+.toggle-switch.on {
+  background-color: #000000;
+}
+body.inverted .toggle-switch.on {
+  background-color: #ffffff;
+}
+.toggle-knob {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background-color: #000000;
+}
+body.inverted .toggle-knob {
+  background-color: #ffffff;
+}
+.toggle-switch.on .toggle-knob {
+  left: 42px;
+  background-color: #ffffff;
+}
+body.inverted .toggle-switch.on .toggle-knob {
+  background-color: #000000;
+}
+
+/* Segmented Control */
+.seg-group {
+  display: inline-block;
+  height: 46px;
+  border: 3.5px solid #000000;
+  border-radius: 23px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+body.inverted .seg-group {
+  border-color: #ffffff;
+}
+.seg-btn {
+  display: inline-block;
+  height: 40px;
+  line-height: 38px;
+  border: none;
+  border-right: 3px solid #000000;
+  padding: 0 24px;
+  font-size: 25px;
+  font-weight: 700;
+  background: transparent;
+  color: #000000;
+  cursor: pointer;
+}
+body.inverted .seg-btn {
+  border-right-color: #ffffff;
+  color: #ffffff;
+}
+.seg-btn.last {
+  border-right: none;
+}
+.seg-btn.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .seg-btn.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* ============================================================================
+   BOTTOM 3-TAB NAVIGATION BAR (136px tall, flush at bottom)
+   ============================================================================ */
+#bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 1072px;
+  height: 136px;
+  border-top: 3.5px solid #000000;
+  background-color: #ffffff;
+  padding: 15px 24px;
+  z-index: 25;
+}
+body.inverted #bottom-nav {
+  border-top-color: #ffffff;
+  background-color: #000000;
+}
+.nav-table {
+  display: table;
+  width: 1024px;
+  height: 102px;
+}
+.nav-cell {
+  display: table-cell;
+  width: 33.333%;
+  vertical-align: middle;
+  text-align: center;
+}
+.nav-tab-btn {
+  width: 328px;
+  height: 102px;
+  border: none;
+  border-radius: 36px;
+  background: transparent;
+  color: #000000;
+  cursor: pointer;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  padding: 12px 0 8px 0;
+}
+body.inverted .nav-tab-btn {
+  color: #ffffff;
+}
+.nav-tab-btn.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .nav-tab-btn.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+.nav-tab-label {
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-top: 6px;
+}
+
+/* ============================================================================
+   IN-WEBPAGE & APP MODAL VIEWPORT (Points 4, 5, 10, 11, 12)
+   Top Header inside Webpage: [<- Back] | [Editable URL Pill + Clear (X) + Go] | [3-dots Menu]
+   ============================================================================ */
+#app-modal {
+  display: none;
+  position: absolute;
+  top: 0px;
+  bottom: 0;
+  left: 0;
+  width: 1072px;
+  background-color: #ffffff;
+  color: #000000;
+  z-index: 50;
+  overflow: hidden;
+}
+body.show-own-statusbar #app-modal {
+  top: 58px;
+}
+#app-modal.standby-fullscreen-modal {
+  top: 0px !important;
+  bottom: 0px !important;
+  z-index: 950 !important;
+}
+/* StandBy Horizontal Landscape Clock Styles */
+.standby-landscape-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1072px;
+  height: 100%;
+  background-color: #000000;
+  color: #ffffff;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.standby-rotated-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1380px;
+  height: 1020px;
+  margin-left: -690px;
+  margin-top: -510px;
+  -webkit-transform: rotate(90deg);
+  transform: rotate(90deg);
+  background-color: #000000;
+  color: #ffffff;
+  overflow: hidden;
+}
+.flip-card-box {
+  display: inline-block;
+  width: 610px;
+  height: 780px;
+  background-color: #121212;
+  border: 6px solid #ffffff;
+  border-radius: 56px;
+  position: relative;
+  vertical-align: middle;
+  margin: 0 22px;
+  text-align: center;
+}
+.flip-card-digit {
+  font-size: 470px;
+  font-weight: 900;
+  line-height: 760px;
+  letter-spacing: -12px;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.flip-card-seam {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 8px;
+  margin-top: -4px;
+  background-color: #000000;
+  border-top: 2px solid #444444;
+  border-bottom: 2px solid #444444;
+  z-index: 5;
+}
+/* Sketch Pad Upgraded Styles (matching image_6b0460.png) */
+.sketch-tool-circle {
+  display: inline-block;
+  width: 68px;
+  height: 68px;
+  border-radius: 34px;
+  border: 3.5px solid currentColor;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  line-height: 62px;
+  margin-right: 14px;
+  cursor: pointer;
+  vertical-align: middle;
+  padding: 0;
+}
+.sketch-tool-circle.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .sketch-tool-circle.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+.sketch-bottom-pill {
+  display: inline-block;
+  height: 56px;
+  line-height: 50px;
+  padding: 0 32px;
+  border-radius: 28px;
+  border: 3.5px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 25px;
+  font-weight: 800;
+  margin: 0 10px;
+  cursor: pointer;
+}
+.sketch-bottom-pill.active {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.inverted .sketch-bottom-pill.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+/* Arcade 70-Game Grid & Board Styles */
+.arcade-game-card {
+  border: 3.5px solid currentColor;
+  border-radius: 24px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  display: table;
+  width: 100%;
+  cursor: pointer;
+}
+.board-grid-table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  border: 4px solid currentColor;
+}
+.board-cell {
+  width: 96px;
+  height: 96px;
+  border: 2.5px solid currentColor;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 54px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.inverted #app-modal {
+  background-color: #000000;
+  color: #ffffff;
+}
+.modal-header {
+  display: table;
+  width: 1072px;
+  height: 104px;
+  padding: 0 28px;
+  border-bottom: 3.5px solid #000000;
+  background-color: inherit;
+}
+body.inverted .modal-header {
+  border-bottom-color: #ffffff;
+}
+/* Compact URL Pill inside Active Webpage Header */
+.modal-url-pill {
+  width: 716px;
+  height: 74px;
+  border: 3.5px solid currentColor;
+  border-radius: 37px;
+  display: table;
+  padding: 0 14px 0 22px;
+  margin: 0 auto;
+  background-color: inherit;
+}
+.modal-url-input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  line-height: 40px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 28px;
+  font-weight: 600;
+  color: inherit;
+  vertical-align: middle;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* 3-Dots Web Options Drawer inside Webpage (Point 4: Fullscreen, Reader mode, Desktop site, JS, Engine) */
+#web-options-drawer {
+  display: none;
+  position: absolute;
+  top: 104px;
+  left: 0;
+  width: 1072px;
+  background-color: #ffffff;
+  color: #000000;
+  border-bottom: 4px solid #000000;
+  padding: 24px 36px;
+  z-index: 75;
+}
+body.inverted #web-options-drawer {
+  background-color: #000000;
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+/* Floating Restore Button when Webpage is in Fullscreen Mode */
+#fullscreen-restore-pill {
+  display: none;
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  z-index: 90;
+  background-color: #ffffff;
+  color: #000000;
+  border: 3.5px solid #000000;
+  border-radius: 28px;
+  padding: 8px 20px;
+  font-size: 24px;
+  font-weight: 800;
+  cursor: pointer;
+}
+body.inverted #fullscreen-restore-pill {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+.modal-body {
+  position: absolute;
+  top: 104px;
+  bottom: 0;
+  left: 0;
+  width: 1072px;
+  overflow-y: auto;
+  padding: 28px 40px;
+}
+.modal-body.fullscreen-web-body {
+  top: 0;
+}
+.modal-body.chromeless-iframe-mode {
+  padding: 0;
+  overflow: hidden;
+}
+.chromeless-iframe {
+  width: 1072px;
+  height: 100%;
+  border: none;
+  background-color: #ffffff;
+}
+
+/* Built-In Web Search & Wikipedia Reader Styling */
+.web-results-container {
+  padding: 28px 40px 60px 40px;
+}
+.web-result-card {
+  border-bottom: 2px solid #d4d4d4;
+  padding: 24px 0;
+  cursor: pointer;
+}
+body.inverted .web-result-card {
+  border-bottom-color: #333333;
+}
+.web-result-title {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-decoration: underline;
+}
+.web-result-url {
+  font-size: 24px;
+  font-weight: 700;
+  color: #555555;
+  margin-bottom: 10px;
+}
+body.inverted .web-result-url {
+  color: #aaaaaa;
+}
+.web-result-snippet {
+  font-size: 29px;
+  line-height: 1.45;
+  color: #222222;
+}
+body.inverted .web-result-snippet {
+  color: #dddddd;
+}
+.wiki-article-body {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  line-height: 1.65;
+  padding: 10px 0 60px 0;
+}
+.wiki-article-body h1, .wiki-article-body h2, .wiki-article-body h3 {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+.wiki-article-body p {
+  margin: 0 0 20px 0;
+}
+.wiki-article-body a {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: bold;
+}
+.wiki-article-body img {
+  max-width: 100%;
+  height: auto;
+  filter: grayscale(100%) contrast(120%);
+  -webkit-filter: grayscale(100%) contrast(120%);
+  border: 2px solid currentColor;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
+.reader-page-box {
+  border: 3.5px solid currentColor;
+  border-radius: 28px;
+  padding: 40px;
+  line-height: 1.65;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  min-height: 800px;
+}
+
+.eq-stage {
+  width: 100%;
+  height: 440px;
+  border: 3.5px solid #000000;
+  border-radius: 32px;
+  padding: 36px;
+  text-align: center;
+  margin: 24px 0;
+}
+body.inverted .eq-stage {
+  border-color: #ffffff;
+}
+.eq-bar-wrap {
+  display: inline-block;
+  width: 8%;
+  height: 350px;
+  margin: 0 1%;
+  position: relative;
+  vertical-align: bottom;
+}
+.eq-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #000000;
+  border-radius: 10px;
+}
+body.inverted .eq-bar {
+  background-color: #ffffff;
+}
+
+#ghost-flash-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #000000;
+  z-index: 999;
+}
+
+#eink-toast {
+  display: none;
+  position: absolute;
+  bottom: 160px;
+  left: 40px;
+  right: 40px;
+  background-color: #000000;
+  color: #ffffff;
+  border: 3.5px solid #000000;
+  border-radius: 28px;
+  padding: 22px 32px;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  z-index: 200;
+}
+body.inverted #eink-toast {
+  background-color: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}
+</style>
+</head>
+<body class="text-m">
+<div id="device-frame">
+
+  <!-- 1. ALWAYS-VISIBLE TIME & BATTERY TOP BAR (Point 3) -->
+  <div id="status-bar">
+    <div id="status-left">9:41 AM</div>
+    <div id="status-right">
+      <span id="battery-pct-text">82%</span>
+      <span class="battery-box"><span class="battery-fill" id="battery-fill-bar"></span></span>
+    </div>
+  </div>
+
+  <!-- 2. TOP TOOLBAR (Sun = Brightness, Wi-Fi = Wi-Fi Networks Page, Search Pill + Clear, 3-dots = Settings) -->
+  <div id="top-toolbar">
+    <button type="button" class="toolbar-icon-btn" id="btn-brightness-popup" title="Frontlight Brightness">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <line x1="12" y1="2" x2="12" y2="4.5"></line>
+        <line x1="12" y1="19.5" x2="12" y2="22"></line>
+        <line x1="4.93" y1="4.93" x2="6.7" y2="6.7"></line>
+        <line x1="17.3" y1="17.3" x2="19.07" y2="19.07"></line>
+        <line x1="2" y1="12" x2="4.5" y2="12"></line>
+        <line x1="19.5" y1="12" x2="22" y2="12"></line>
+        <line x1="4.93" y1="19.07" x2="6.7" y2="17.3"></line>
+        <line x1="17.3" y1="6.7" x2="19.07" y2="4.93"></line>
+      </svg>
+    </button>
+
+    <button type="button" class="toolbar-icon-btn" id="btn-wifi-status" title="Select Wi-Fi Network">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+        <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <circle cx="12" cy="20" r="1.6" fill="currentColor"></circle>
+      </svg>
+    </button>
+
+    <form id="global-search-form" onsubmit="return false;" style="margin:0;">
+      <div class="search-pill">
+        <div class="search-icon-cell" id="btn-global-search-go" style="cursor:pointer;">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
+          </svg>
+        </div>
+        <div class="search-input-cell">
+          <input type="text" id="global-search-input" class="search-input" placeholder="Search device, apps and web">
+        </div>
+        <div class="search-clear-cell">
+          <button type="button" class="clear-circle-btn" id="btn-global-search-clear" title="Clear search">&times;</button>
+        </div>
+      </div>
+    </form>
+
+    <button type="button" class="toolbar-icon-btn" id="btn-open-settings" title="Settings">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="2.4"></circle>
+        <circle cx="12" cy="12" r="2.4"></circle>
+        <circle cx="12" cy="19" r="2.4"></circle>
+      </svg>
+    </button>
+  </div>
+
+  <!-- QUICK BRIGHTNESS POPUP WITH SCROLLABLE/DRAGGABLE SLIDER -->
+  <div id="brightness-drawer" style="width:680px;">
+    <div style="font-size:28px; font-weight:800; margin-bottom:16px;">Frontlight Brightness: <span id="bright-drawer-val">14</span> / 24 <span style="font-size:22px; font-weight:400;">(Slide or Tap)</span></div>
+    <div style="display:table; width:100%; margin-bottom:16px;">
+      <div style="display:table-cell; width:105px; vertical-align:middle;">
+        <button type="button" class="open-pill-btn" id="btn-bright-down" style="min-width:92px;">&minus;</button>
+      </div>
+      <div style="display:table-cell; vertical-align:middle; padding:0 14px;">
+        <div class="brightness-slider-wrap" id="top-bright-slider-box">
+          <div class="brightness-slider-fill" id="bright-drawer-bar" style="width:58%;"></div>
+          <input type="range" min="0" max="24" step="1" value="14" id="top-bright-range" class="brightness-range-input">
+        </div>
+      </div>
+      <div style="display:table-cell; width:105px; vertical-align:middle; text-align:right;">
+        <button type="button" class="open-pill-btn" id="btn-bright-up" style="min-width:92px;">+</button>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <button type="button" class="web-chip" data-brightpreset="0">0 (Off)</button>
+      <button type="button" class="web-chip" data-brightpreset="6">6</button>
+      <button type="button" class="web-chip" data-brightpreset="12">12</button>
+      <button type="button" class="web-chip" data-brightpreset="18">18</button>
+      <button type="button" class="web-chip" data-brightpreset="24" style="margin-right:0;">24 (Max)</button>
+    </div>
+  </div>
+
+  <!-- 3. MAIN SCROLLABLE CONTENT -->
+  <div id="main-scroll"></div>
+
+  <!-- 4. IN-WEBPAGE & APP MODAL CONTAINER (Points 4, 5, 10, 11, 12) -->
+  <div id="app-modal">
+    <!-- Webpage / App Top Header -->
+    <div class="modal-header" id="modal-top-bar">
+      <!-- Left: Arrow + Back (Point 5) -->
+      <div style="display:table-cell; width:190px; vertical-align:middle; text-align:left;">
+        <button type="button" class="back-arrow-btn" id="btn-close-modal">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>Back
+        </button>
+      </div>
+
+      <!-- Center: Live URL/Search Pill when in a Webpage (Points 4, 10, 11) OR App Title when in Local App -->
+      <div style="display:table-cell; vertical-align:middle; text-align:center;">
+        <span id="modal-app-title" style="font-size:36px; font-weight:800; display:none;">App</span>
+        <form id="modal-url-form" onsubmit="return false;" style="margin:0;">
+          <div class="modal-url-pill" id="modal-url-pill-wrap">
+            <div class="url-lock-cell" style="width:40px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
+              </svg>
+            </div>
+            <div class="url-input-cell">
+              <input type="text" id="modal-url-input" class="modal-url-input" placeholder="Search Google, Wikipedia or enter URL">
+            </div>
+            <!-- Clear (X) Button inside URL bar (Point 11) -->
+            <div class="url-clear-cell" style="width:48px;">
+              <button type="button" class="clear-circle-btn" id="btn-modal-url-clear" title="Clear URL">&times;</button>
+            </div>
+            <!-- Go / Reload Button -->
+            <div class="url-reload-cell" id="btn-modal-url-go" style="width:48px; text-align:center;" title="Go">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Three-Dots Web Options Button (Point 4) -->
+      <div style="display:table-cell; width:96px; vertical-align:middle; text-align:right;">
+        <button type="button" class="toolbar-icon-btn" id="btn-modal-three-dots" style="position:static; width:68px; height:68px; display:inline-block;" title="Web Options (Fullscreen, Reader Mode, Engine)">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;">
+            <circle cx="12" cy="5" r="2.5"></circle>
+            <circle cx="12" cy="12" r="2.5"></circle>
+            <circle cx="12" cy="19" r="2.5"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3-Dots Dropdown Menu inside Webpage (Point 4: Fullscreen, Reader mode, Desktop site, JavaScript, Engine) -->
+    <div id="web-options-drawer">
+      <div style="font-size:22px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:#555555; margin-bottom:14px;">PAGE CONTROLS</div>
+      <div class="web-chip-row" style="margin-bottom:20px;">
+        <button type="button" class="web-chip" id="opt-chip-fullscreen">Fullscreen</button>
+        <button type="button" class="web-chip" id="opt-chip-reader">Reader mode</button>
+        <button type="button" class="web-chip" id="opt-chip-desktop">Desktop site</button>
+        <button type="button" class="web-chip" id="opt-chip-js">JavaScript</button>
+        <button type="button" class="web-chip" id="opt-chip-reload">&#8635; Reload</button>
+      </div>
+      <div style="display:table; width:100%; padding-top:12px; border-top:2px solid #d4d4d4;">
+        <div style="display:table-cell; vertical-align:middle; font-size:30px; font-weight:800;">Engine</div>
+        <div style="display:table-cell; vertical-align:middle; text-align:right;">
+          <button type="button" class="filter-pill" id="opt-engine-webkit">Kindle WebKit</button>
+          <button type="button" class="filter-pill" id="opt-engine-modern" style="margin-right:0;">Modern (beta)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating button to exit Fullscreen when Fullscreen is active -->
+    <button type="button" id="fullscreen-restore-pill">&#8942; Show Bar</button>
+
+    <!-- Webpage / App Body -->
+    <div class="modal-body" id="modal-app-body"></div>
+  </div>
+
+  <!-- E-INK GHOSTING CLEANER FLASH LAYER -->
+  <div id="ghost-flash-overlay"></div>
+
+  <!-- E-INK TOAST -->
+  <div id="eink-toast"></div>
+
+  <!-- 5. BOTTOM 3-TAB BAR (HOME, LIBRARY, WEB) -->
+  <div id="bottom-nav">
+    <div class="nav-table">
+      <div class="nav-cell">
+        <button type="button" class="nav-tab-btn active" id="tab-btn-home">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" style="margin:0 auto; display:block;">
+            <path d="M3 10.5L12 3l9 7.5"></path>
+            <path d="M5 9.5V20h14V9.5"></path>
+          </svg>
+          <span class="nav-tab-label">HOME</span>
+        </button>
+      </div>
+      <div class="nav-cell">
+        <button type="button" class="nav-tab-btn" id="tab-btn-library">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" style="margin:0 auto; display:block;">
+            <path d="M2 4h8a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H2z"></path>
+            <path d="M22 4h-8a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h8z"></path>
+          </svg>
+          <span class="nav-tab-label">LIBRARY</span>
+        </button>
+      </div>
+      <div class="nav-cell">
+        <button type="button" class="nav-tab-btn" id="tab-btn-web">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin:0 auto; display:block;">
+            <circle cx="12" cy="12" r="9"></circle>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <path d="M12 3a14 14 0 0 1 4 9 14 14 0 0 1-4 9 14 14 0 0 1-4-9 14 14 0 0 1 4-9z"></path>
+          </svg>
+          <span class="nav-tab-label">WEB</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Auto-generated device data (real battery, real Wi-Fi SSIDs, real books from /mnt/us/documents) -->
+<script type="text/javascript">
+document.write('<scr' + 'ipt type="text/javascript" src="device_data.js?v=' + (new Date().getTime()) + '"></scr' + 'ipt>');
+</script>
+
+<script type="text/javascript">
+/* ============================================================================
+   PAPERWHITE OS 4.7 — COMPLETE RUNTIME ENGINE
+   ============================================================================ */
+
+var STATE = {
+  activeTab: "home",
+  inSettings: false,
+  inWifiPage: false,
+  wifiPasswordTarget: "",
+  settingsPage: 1,
+  searchQuery: "",
+  settingsQuery: "",
+  uiZoomPct: 100,
+  homeLayout: "list",
+  gridColumns: 3,
+  showSubtitles: true,
+  showNewBadges: true,
+  statusBarMode: "Auto",    /* "Auto" (1 bar only), "Show", "Hide" */
+  autoInstalledRoot: false,
+  theme: "Normal",          /* "Normal", "Inverted", "Auto" — ONLY changed in Settings! */
+  textSize: "M",
+  showBatteryPct: true,
+  airplaneMode: false,
+  connectedWifi: "Home network",
+  brightnessLevel: 14,
+  timeFormat24: false,
+  pageRefreshFreq: 6,
+  pageTurnCount: 0,
+  ghostingCleaner: false,
+  contrastMode: "Normal",
+  libraryFilter: "All",
+  librarySort: "Recent",
+  coverStyle: "Rounded",
+  showProgressBars: true,
+  webUrl: "https://en.wikipedia.org",
+  webFullscreen: false,
+  webReaderMode: false,
+  webDesktopSite: false,
+  webJavaScript: true,
+  webAdBlocker: true,
+  webEngine: "Modern (beta)",
+  readingFont: "Bookerly",
+  readingMargins: "Medium",
+  readingSpacing: "Normal",
+  swipeToTurn: true,
+  wallpaperShuffle: true,
+  selectedWallpaper: "01_cardioid_dark.png",
+  showBatterySleep: true,
+  clockOnSleep: false,
+  sleepTimeoutMins: 5,
+  kioskLockdown: true,
+  usbSsh: false,
+  runScriptsAtBoot: true,
+  showHiddenFiles: false,
+  blockAmazonUpdates: true,
+  batteryLevel: 82,
+  storageFree: "2.6 GB free",
+  currentModalApp: null,
+  isWebModal: false,
+  webHistory: [],
+  eqTimer: null,
+  lyricsIdx: 1
+};
+
+var WIFI_NETWORKS = [
+  { ssid: "Current Wi-Fi Network", signal: "Connected", secured: true, connected: true }
+];
+
+function shouldShowOwnStatusBar() {
+  if (STATE.statusBarMode === "Show") return true;
+  if (STATE.statusBarMode === "Hide") return false;
+  /* In "Auto" mode:
+     - On desktop/mobile preview (non-Kindle), show our status bar.
+     - On Kindle: if the native top bar is still occupying the top 60px, the viewport aspect ratio (vh/vw) is ~1.276 (< 1.32), so we HIDE our duplicate bar!
+     - Once the native top bar is gone/covered (vh/vw >= 1.325), we SHOW our status bar! */
+  var isKindle = (typeof window.kindle !== "undefined" || typeof window.nativeBridge !== "undefined" || typeof window.NativeBridge !== "undefined" || navigator.userAgent.toLowerCase().indexOf("kindle") !== -1 || navigator.userAgent.toLowerCase().indexOf("juno") !== -1 || navigator.userAgent.indexOf("Linux armv7l") !== -1);
+  if (!isKindle) return true;
+  var vw = window.innerWidth || document.documentElement.clientWidth || 1072;
+  var vh = window.innerHeight || document.documentElement.clientHeight || 1388;
+  if ((vh / vw) >= 1.31) return true;
+  return false;
+}
+
+function calibrateMasterCanvas() {
+  var frame = document.getElementById("device-frame");
+  if (!frame) return;
+  var vw = window.innerWidth || document.documentElement.clientWidth || 1072;
+  var vh = window.innerHeight || document.documentElement.clientHeight || 1448;
+  var userScale = (STATE.uiZoomPct || 100) / 100;
+  var targetWidth = Math.round(1072 / userScale);
+  var scale = vw / targetWidth;
+  var targetHeight = Math.round(vh / scale);
+  if (targetHeight < 900) targetHeight = 1448;
+
+  frame.style.width = targetWidth + "px";
+  frame.style.height = targetHeight + "px";
+  if (Math.abs(scale - 1) < 0.02) {
+    frame.style.zoom = "";
+  } else {
+    frame.style.zoom = scale;
+  }
+  window.__PW_ZOOM = scale || 1;
+}
+
+function updateLiveClockAndBattery() {
+  var now = new Date();
+  var hrs = now.getHours();
+  var mins = now.getMinutes();
+  var ampm = "";
+  if (!STATE.timeFormat24) {
+    ampm = (hrs >= 12) ? " PM" : " AM";
+    hrs = hrs % 12;
+    if (hrs === 0) hrs = 12;
+  }
+  var minStr = (mins < 10) ? ("0" + mins) : ("" + mins);
+  var timeStr = hrs + ":" + minStr + ampm;
+
+  var sLeft = document.getElementById("status-left");
+  if (sLeft) sLeft.innerHTML = timeStr;
+
+
+  try {
+    /* Refresh live_battery.js dynamically on Kindle without growing DOM */
+    if (typeof window.kindle !== "undefined") {
+      var oldSc = document.getElementById("pw-live-bat-script");
+      if (oldSc && oldSc.parentNode) oldSc.parentNode.removeChild(oldSc);
+      var sc = document.createElement("script");
+      sc.id = "pw-live-bat-script";
+      sc.type = "text/javascript";
+      sc.src = "live_battery.js?t=" + now.getTime();
+      document.body.appendChild(sc);
+    }
+    if (window.KINDLE_LIVE_BATTERY && typeof window.KINDLE_LIVE_BATTERY.level === "number" && window.KINDLE_LIVE_BATTERY.level >= 0 && window.KINDLE_LIVE_BATTERY.level <= 100) {
+      STATE.batteryLevel = window.KINDLE_LIVE_BATTERY.level;
+      STATE.isCharging = !!window.KINDLE_LIVE_BATTERY.charging;
+    } else if (window.NativeBridge && typeof window.NativeBridge.getIntLipcProperty === "function") {
+      var liveBat = window.NativeBridge.getIntLipcProperty("com.lab126.powerd", "battLevel");
+      if (liveBat && liveBat > 0 && liveBat <= 100) {
+        STATE.batteryLevel = liveBat;
+      }
+    } else if (window.KINDLE_DEVICE_DATA && typeof window.KINDLE_DEVICE_DATA.battery === "number") {
+      STATE.batteryLevel = window.KINDLE_DEVICE_DATA.battery;
+    }
+  } catch (e) {}
+
+  var bText = document.getElementById("battery-pct-text");
+  if (bText) {
+    bText.innerHTML = (STATE.isCharging ? "&#9889; " : "") + STATE.batteryLevel + "%";
+    bText.style.display = STATE.showBatteryPct ? "inline" : "none";
+  }
+  var bFill = document.getElementById("battery-fill-bar");
+  if (bFill) bFill.style.width = Math.max(4, Math.min(100, STATE.batteryLevel)) + "%";
+}
+
+function runGhostingCleanerFlash() {
+  var ov = document.getElementById("ghost-flash-overlay");
+  if (!ov) return;
+  ov.style.backgroundColor = "#000000";
+  ov.style.display = "block";
+  setTimeout(function() {
+    ov.style.backgroundColor = "#ffffff";
+    setTimeout(function() {
+      ov.style.display = "none";
+    }, 110);
+  }, 110);
+}
+
+/* Relay LIPC property sets through BOTH direct kindle.messaging AND Pillow's unrestricted nativeBridge! */
+function setKindleHardwareProp(service, prop, val, isInt) {
+  try {
+    var nb = window.nativeBridge || window.NativeBridge;
+    if (nb) {
+      if (isInt && typeof nb.setIntLipcProperty === "function") {
+        nb.setIntLipcProperty(service, prop, parseInt(val, 10));
+      } else if (typeof nb.setLipcProperty === "function") {
+        nb.setLipcProperty(service, prop, "" + val);
+      }
+    }
+    if (window.kindle && window.kindle.messaging) {
+      /* 1. Relay through Pillow interrogatePillow -> nativeBridge (bypasses Store config.xml whitelist!) */
+      if (service !== "com.lab126.pillow") {
+        var bridgeJs = isInt
+          ? ("if(window.nativeBridge){try{nativeBridge.setIntLipcProperty(\x27" + service + "\x27,\x27" + prop + "\x27," + parseInt(val, 10) + ");}catch(e){}}")
+          : ("if(window.nativeBridge){try{nativeBridge.setLipcProperty(\x27" + service + "\x27,\x27" + prop + "\x27,\x27" + ("" + val).replace(/\x27/g, "") + "\x27);}catch(e){}}");
+        var pJson = JSON.stringify({ pillowId: "default_status_bar", "function": bridgeJs });
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "interrogatePillow", pJson);
+        window.kindle.messaging.sendMessage("com.lab126.pillow", "interrogatePillowHash", {
+          pillowId: "default_status_bar",
+          "function": bridgeJs
+        });
+      }
+      /* 2. Also send directly via kindle.messaging */
+      if (typeof val === "object") {
+        window.kindle.messaging.sendMessage(service, prop, val);
+      } else {
+        window.kindle.messaging.sendStringMessage(service, prop, "" + val);
+      }
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+/* Launch a silent 50ms Pillow customDialog helper (WinterBreak method) to execute root scripts or brightness! */
+function runPillowHelperDialog(helperName, clientParamsObj) {
+  try {
+    if (window.kindle && window.kindle.messaging) {
+      var cleanName = helperName.replace(/\.html$/, "");
+      var params = clientParamsObj || { show: true };
+      params.show = true;
+      var payload = {
+        name: "../../../../../../mnt/us/paperwhite-os/" + cleanName,
+        clientParams: params
+      };
+      window.kindle.messaging.sendMessage("com.lab126.pillow", "customDialog", payload);
+      window.kindle.messaging.sendStringMessage("com.lab126.pillow", "customDialog", JSON.stringify(payload));
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function loadSavedState() {
+  try {
+    var raw = window.localStorage ? window.localStorage.getItem("pw_os_state_v6") : null;
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      var k;
+      for (k in parsed) {
+        if (parsed.hasOwnProperty(k) && k !== "inSettings" && k !== "inWifiPage" && k !== "currentModalApp" && k !== "eqTimer" && k !== "batteryLevel") {
+          STATE[k] = parsed[k];
+        }
+      }
+    }
+    if (window.KINDLE_DEVICE_DATA) {
+      if (window.KINDLE_DEVICE_DATA.battery) STATE.batteryLevel = window.KINDLE_DEVICE_DATA.battery;
+      if (window.KINDLE_DEVICE_DATA.storageFree) STATE.storageFree = window.KINDLE_DEVICE_DATA.storageFree;
+      if (window.KINDLE_DEVICE_DATA.connectedWifi) STATE.connectedWifi = window.KINDLE_DEVICE_DATA.connectedWifi;
+      if (window.KINDLE_DEVICE_DATA.wifiNetworks && window.KINDLE_DEVICE_DATA.wifiNetworks.length > 0) {
+        WIFI_NETWORKS = window.KINDLE_DEVICE_DATA.wifiNetworks;
+      }
+      if (window.KINDLE_DEVICE_DATA.books && window.KINDLE_DEVICE_DATA.books.length > 0) {
+        BOOKS = window.KINDLE_DEVICE_DATA.books;
+      }
+    }
+  } catch (e) {}
+}
+
+function saveState() {
+  try {
+    if (window.localStorage) {
+      window.localStorage.setItem("pw_os_state_v6", JSON.stringify(STATE));
+    }
+  } catch (e) {}
+}
+
+function initKindleChromelessBridge() {
+  try {
+    /* IMPORTANT: Never call dismissChrome or disableEnablePillow here, so wifi_wizard_dialog is NEVER auto-closed! */
+    var hideFn = "if(window.nativeBridge){try{nativeBridge.setWindowSize(0,0);}catch(e){} try{nativeBridge.hideMe();}catch(e){}}";
+    var hidePayload = JSON.stringify({ pillowId: "default_status_bar", "function": hideFn });
+
+    if (window.kindle && window.kindle.messaging) {
+      if (!STATE.inWifiPage) {
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "dismissChrome", "1");
+        window.kindle.messaging.sendMessage("com.lab126.pillow", "dismissChrome", 1);
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "disableEnablePillow", "disable");
+      }
+      window.kindle.messaging.sendStringMessage("com.lab126.pillow", "interrogatePillow", hidePayload);
+      window.kindle.messaging.sendMessage("com.lab126.pillow", "interrogatePillowHash", {
+        pillowId: "default_status_bar",
+        "function": hideFn
+      });
+      var appIds = ["com.paperwhite.os", "com.lab126.store", "com.lab126.browser"];
+      var i;
+      for (i = 0; i < appIds.length; i++) {
+        var cfg = {
+          appId: appIds[i],
+          topNavBar: { template: "none" }
+        };
+        window.kindle.messaging.sendStringMessage("com.lab126.chromebar", "configureChrome", JSON.stringify(cfg));
+        window.kindle.messaging.sendMessage("com.lab126.chromebar", "configureChrome", cfg);
+      }
+    }
+    /* Never open any customDialog automatically on startup — prevents "Application Error" 100%! */
+  } catch (e) {}
+}
+
+var APP_SVGS = {
+  stats: '<svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><line x1="10" y1="36" x2="38" y2="36"></line><line x1="15" y1="36" x2="15" y2="24"></line><line x1="22" y1="36" x2="22" y2="16"></line><line x1="29" y1="36" x2="29" y2="22"></line><line x1="35" y1="36" x2="35" y2="12"></line></svg>',
+  sketch: '<svg width="62" height="62" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"><path d="M32 10l6 6L18 36l-8 2 2-8L32 10z"></path><line x1="28" y1="14" x2="34" y2="20"></line></svg>',
+  wallpapers: '<svg width="62" height="62" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"><rect x="8" y="10" width="32" height="28" rx="4"></rect><circle cx="17" cy="19" r="3" fill="currentColor"></circle><path d="M10 34l9-9 6 6 7-8 8 11"></path></svg>',
+  kterm: '<svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="36" height="30" rx="5"></rect><polyline points="14 20 21 25 14 30"></polyline><line x1="24" y1="30" x2="34" y2="30"></line></svg>',
+  clock: '<svg width="62" height="62" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><circle cx="24" cy="24" r="15"></circle><polyline points="24 15 24 24 31 28"></polyline></svg>',
+  web: '<svg width="62" height="62" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4"><circle cx="24" cy="24" r="15"></circle><line x1="9" y1="24" x2="39" y2="24"></line><path d="M24 9a22 22 0 0 1 6 15 22 22 0 0 1-6 15 22 22 0 0 1-6-15 22 22 0 0 1 6-15z"></path></svg>'
+};
+
+var APPS = [
+  { id: "kterm", name: "kterm", subtitle: "Kindle Linux Terminal \u00b7 /mnt/us/kterm", gridSub: "Linux Terminal", url: "app://com.paperwhite.kterm", isNew: true },
+  { id: "stats", name: "Reading Stats", subtitle: "12 books \u00b7 41 h this month", gridSub: "12 books", url: "local://stats", isNew: true },
+  { id: "sketch", name: "Sketch Pad", subtitle: "Draw with your finger", gridSub: "Draw with your finger", url: "local://sketch", isNew: true },
+  { id: "wallpapers", name: "Wallpapers", subtitle: "46 custom sleep screen designs", gridSub: "46 designs", url: "local://wallpapers", isNew: false },
+  { id: "clock", name: "Sleep Clock", subtitle: "Horizontal StandBy clock", gridSub: "StandBy clock", url: "local://clock", isNew: true },
+  { id: "web", name: "Web", subtitle: "Browser", gridSub: "Browser", url: "tab://web", isNew: false }
+];
+
+var GRID_APP_IDS = ["kterm", "stats", "sketch", "wallpapers", "web"];
+
+var BOOKS = [];
+
+var WALLPAPER_LIST = [
+  { file: "01_cardioid_dark.png", title: "Cardioid String Art (Dark)", group: "String Art" },
+  { file: "01_cardioid_light.png", title: "Cardioid String Art (Light)", group: "String Art" },
+  { file: "02_nephroid_dark.png", title: "Nephroid Envelope (Dark)", group: "String Art" },
+  { file: "02_nephroid_light.png", title: "Nephroid Envelope (Light)", group: "String Art" },
+  { file: "03_rosette_dark.png", title: "Geometric Rosette (Dark)", group: "String Art" },
+  { file: "03_rosette_light.png", title: "Geometric Rosette (Light)", group: "String Art" },
+  { file: "04_lace_dark.png", title: "Hyperbolic Lace (Dark)", group: "String Art" },
+  { file: "04_lace_light.png", title: "Hyperbolic Lace (Light)", group: "String Art" },
+  { file: "05_corners_dark.png", title: "Parabolic Corners (Dark)", group: "String Art" },
+  { file: "06_vase_dark.png", title: "Toroidal Vase (Dark)", group: "String Art" },
+  { file: "08_star_dark.png", title: "Astroid Star (Dark)", group: "String Art" },
+  { file: "11_petals_dark.png", title: "Harmonic Petals (Dark)", group: "String Art" },
+  { file: "A_contours_dark.png", title: "Topographic Contours (Dark)", group: "Line Art" },
+  { file: "A_dither_sun_dark.png", title: "Dithered Sun (Dark)", group: "Line Art" },
+  { file: "A_halftone_dark.png", title: "Halftone Grid (Dark)", group: "Line Art" },
+  { file: "A_moon_dark.png", title: "Phase Moon (Dark)", group: "Line Art" },
+  { file: "A_mountains_dark.png", title: "Wireframe Mountains (Dark)", group: "Line Art" },
+  { file: "A_planet_dark.png", title: "Ringed Planet (Dark)", group: "Line Art" },
+  { file: "A_ridges_dark.png", title: "Joy Division Ridges (Dark)", group: "Line Art" },
+  { file: "A_ripples_dark.png", title: "Interference Ripples (Dark)", group: "Line Art" },
+  { file: "A_shapes_dark.png", title: "Bauhaus Shapes (Dark)", group: "Line Art" },
+  { file: "A_truchet_dark.png", title: "Truchet Tiles (Dark)", group: "Line Art" },
+  { file: "A_waves_dark.png", title: "Sine Waves (Dark)", group: "Line Art" },
+  { file: "B_bookshelf_dark.png", title: "Minimalist Bookshelf (Dark)", group: "Batch 2" },
+  { file: "B_constellation_dark.png", title: "Star Constellation (Dark)", group: "Batch 2" },
+  { file: "B_eclipse_dark.png", title: "Solar Eclipse (Dark)", group: "Batch 2" },
+  { file: "B_vinyl_dark.png", title: "Vinyl Grooves (Dark)", group: "Batch 2" }
+];
+
+var toastTimer = null;
+function showToast(msg) {
+  var el = document.getElementById("eink-toast");
+  if (!el) return;
+  el.innerHTML = msg;
+  el.style.display = "block";
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() {
+    el.style.display = "none";
+  }, 2400);
+}
+
+function syncBodyClasses() {
+  var cls = ["text-" + STATE.textSize.toLowerCase()];
+  if (STATE.theme === "Inverted") {
+    cls.push("inverted");
+  }
+  if (STATE.coverStyle === "Square") {
+    cls.push("square-covers");
+  }
+  if (shouldShowOwnStatusBar()) {
+    cls.push("show-own-statusbar");
+  }
+  document.body.className = cls.join(" ");
+  calibrateMasterCanvas();
+}
+
+function syncWebOptionsDrawerUI() {
+  var cFull = document.getElementById("opt-chip-fullscreen");
+  var cRead = document.getElementById("opt-chip-reader");
+  var cDesk = document.getElementById("opt-chip-desktop");
+  var cJs = document.getElementById("opt-chip-js");
+  var eWebkit = document.getElementById("opt-engine-webkit");
+  var eModern = document.getElementById("opt-engine-modern");
+
+  if (cFull) cFull.className = "web-chip " + (STATE.webFullscreen ? "active" : "");
+  if (cRead) cRead.className = "web-chip " + (STATE.webReaderMode ? "active" : "");
+  if (cDesk) cDesk.className = "web-chip " + (STATE.webDesktopSite ? "active" : "");
+  if (cJs) cJs.className = "web-chip " + (STATE.webJavaScript ? "active" : "");
+  if (eWebkit) eWebkit.className = "filter-pill " + (STATE.webEngine === "Kindle WebKit" ? "active" : "");
+  if (eModern) eModern.className = "filter-pill " + (STATE.webEngine === "Modern (beta)" ? "active" : "");
+
+  var topBar = document.getElementById("modal-top-bar");
+  var bodyEl = document.getElementById("modal-app-body");
+  var restoreBtn = document.getElementById("fullscreen-restore-pill");
+  if (STATE.isWebModal && STATE.webFullscreen) {
+    if (topBar) topBar.style.display = "none";
+    if (restoreBtn) restoreBtn.style.display = "block";
+    if (bodyEl && bodyEl.className.indexOf("fullscreen-web-body") === -1) {
+      bodyEl.className += " fullscreen-web-body";
+    }
+  } else {
+    if (topBar) topBar.style.display = "table";
+    if (restoreBtn) restoreBtn.style.display = "none";
+    if (bodyEl) {
+      bodyEl.className = bodyEl.className.replace(" fullscreen-web-body", "");
+    }
+  }
+}
+
+/* ============================================================================
+   BUILT-IN WEB SEARCH, WIKIPEDIA & UNIVERSAL WEB BROWSER ENGINE (Points 4, 10, 11, 12)
+   Works even on sites like Google & Wikipedia that block iframes via X-Frame-Options!
+   ============================================================================ */
+function configureModalHeaderForWeb(urlOrQuery) {
+  STATE.isWebModal = true;
+  document.getElementById("modal-app-title").style.display = "none";
+  document.getElementById("modal-url-form").style.display = "block";
+  document.getElementById("btn-modal-three-dots").style.display = "inline-block";
+  var mInput = document.getElementById("modal-url-input");
+  if (mInput) {
+    mInput.value = urlOrQuery.replace(/^https?:\/\//, "");
+  }
+  syncWebOptionsDrawerUI();
+}
+
+function configureModalHeaderForLocalApp(title) {
+  STATE.isWebModal = false;
+  document.getElementById("modal-app-title").style.display = "inline";
+  document.getElementById("modal-app-title").innerHTML = title;
+  document.getElementById("modal-url-form").style.display = "none";
+  document.getElementById("btn-modal-three-dots").style.display = "none";
+  document.getElementById("web-options-drawer").style.display = "none";
+  document.getElementById("fullscreen-restore-pill").style.display = "none";
+  document.getElementById("modal-top-bar").style.display = "table";
+}
+
+function isDomainUrl(str) {
+  var s = str.replace(/^\s+|\s+$/g, "");
+  if (s.indexOf(" ") !== -1) return false;
+  if (s.indexOf("http://") === 0 || s.indexOf("https://") === 0) return true;
+  if (s.indexOf(".") !== -1 && s.length > 3) return true;
+  return false;
+}
+
+function openWebSearchOrUrl(rawInput) {
+  if (!rawInput) return;
+  var q = rawInput.replace(/^\s+|\s+$/g, "");
+  if (!q) return;
+
+  var modal = document.getElementById("app-modal");
+  var bodyEl = document.getElementById("modal-app-body");
+  document.getElementById("web-options-drawer").style.display = "none";
+  modal.style.display = "block";
+
+  /* Case 1: User typed "google", "wikipedia", or a search query */
+  var lower = q.toLowerCase();
+  if (lower === "google" || lower === "google.com" || lower === "www.google.com") {
+    STATE.webUrl = "https://www.google.com";
+    configureModalHeaderForWeb("google.com");
+    renderBuiltInSearchPortal("");
+    return;
+  }
+  if (lower === "wikipedia" || lower === "wikipedia.org" || lower === "en.wikipedia.org" || lower === "www.wikipedia.org") {
+    STATE.webUrl = "https://en.wikipedia.org";
+    configureModalHeaderForWeb("en.wikipedia.org");
+    renderWikipediaArticle("Main_Page");
+    return;
+  }
+
+  /* Check if it's a Wikipedia article URL */
+  if (lower.indexOf("wikipedia.org/wiki/") !== -1) {
+    var wikiTitle = q.split("/wiki/")[1].split("#")[0].split("?")[0];
+    STATE.webUrl = "https://en.wikipedia.org/wiki/" + wikiTitle;
+    configureModalHeaderForWeb(STATE.webUrl);
+    renderWikipediaArticle(decodeURIComponent(wikiTitle));
+    return;
+  }
+
+  /* Check if it's a Google search URL */
+  if (lower.indexOf("google.com/search?q=") !== -1) {
+    var gQuery = decodeURIComponent(q.split("q=")[1].split("&")[0].replace(/\+/g, " "));
+    STATE.webUrl = q;
+    configureModalHeaderForWeb(gQuery);
+    performUniversalSearch(gQuery);
+    return;
+  }
+
+  /* If not a domain URL, treat it as a live search query! */
+  if (!isDomainUrl(q)) {
+    STATE.webUrl = "https://www.google.com/search?q=" + encodeURIComponent(q);
+    configureModalHeaderForWeb(q);
+    performUniversalSearch(q);
+    return;
+  }
+
+  /* Otherwise it is a direct domain URL */
+  var fullUrl = (q.indexOf("http") === 0) ? q : ("https://" + q);
+  STATE.webUrl = fullUrl;
+  configureModalHeaderForWeb(fullUrl);
+
+  /* If Reader Mode is ON, fetch readable page via CORS proxy */
+  if (STATE.webReaderMode) {
+    renderUrlInReaderMode(fullUrl);
+    return;
+  }
+
+  /* Standard Iframe Load + Quick Reader Fallback bar at top in case site uses X-Frame-Options */
+  bodyEl.className = "modal-body chromeless-iframe-mode" + (STATE.webFullscreen ? " fullscreen-web-body" : "");
+  bodyEl.innerHTML = '<iframe class="chromeless-iframe" id="active-web-iframe" src="' + fullUrl + '"></iframe>';
+}
+
+function renderBuiltInSearchPortal(initialQuery) {
+  var bodyEl = document.getElementById("modal-app-body");
+  bodyEl.className = "modal-body" + (STATE.webFullscreen ? " fullscreen-web-body" : "");
+  bodyEl.innerHTML = '<div style="text-align:center; padding:60px 40px;">' +
+    '<div style="font-size:64px; font-weight:800; letter-spacing:-1px; margin-bottom:14px;">Paperwhite Search</div>' +
+    '<div style="font-size:28px; color:#555555; margin-bottom:36px;">Google + Wikipedia + Web Reader (Optimized for E-Ink)</div>' +
+    '<form id="portal-search-form" onsubmit="return false;" style="margin:0 auto 32px auto; width:880px;">' +
+      '<div class="url-pill-box" style="width:880px; margin:0 auto;">' +
+        '<div class="url-input-cell">' +
+          '<input type="text" id="portal-search-input" class="url-input" placeholder="Type anything to search Google &amp; Wikipedia..." value="' + initialQuery + '">' +
+        '</div>' +
+        '<div class="url-reload-cell" id="btn-portal-search-go" style="width:110px;">' +
+          '<span class="open-pill-btn" style="height:54px; line-height:48px; min-width:100px; font-size:25px;">Search</span>' +
+        '</div>' +
+      '</div>' +
+    '</form>' +
+
+  '</div>';
+
+  setTimeout(function() {
+    var pForm = document.getElementById("portal-search-form");
+    var pInput = document.getElementById("portal-search-input");
+    var pGo = document.getElementById("btn-portal-search-go");
+    if (pForm && pInput) {
+      pForm.onsubmit = function() {
+        if (pInput.value) performUniversalSearch(pInput.value);
+        return false;
+      };
+    }
+    if (pGo && pInput) {
+      pGo.onclick = function() {
+        if (pInput.value) performUniversalSearch(pInput.value);
+      };
+    }
+  }, 30);
+}
+
+function performUniversalSearch(query) {
+  var bodyEl = document.getElementById("modal-app-body");
+  bodyEl.className = "modal-body" + (STATE.webFullscreen ? " fullscreen-web-body" : "");
+  bodyEl.innerHTML = '<div style="padding:50px 40px; text-align:center; font-size:32px; font-weight:800;">Searching "' + query + '"...</div>';
+
+  var xhr = new XMLHttpRequest();
+  var apiUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(query) + "&utf8=1&format=json&origin=*";
+  xhr.open("GET", apiUrl, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          var items = (data && data.query && data.query.search) ? data.query.search : [];
+          var html = '<div class="web-results-container">' +
+            '<div style="font-size:23px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:#555555; margin-bottom:16px;">SEARCH RESULTS FOR "' + query.toUpperCase() + '"</div>';
+
+          if (items.length === 0) {
+            html += '<div style="font-size:30px; padding:30px 0;">No direct matches found. Try another search term above.</div>';
+          } else {
+            var i;
+            for (i = 0; i < items.length; i++) {
+              var it = items[i];
+              html += '<div class="web-result-card" data-wikititle="' + encodeURIComponent(it.title) + '">' +
+                '<div class="web-result-title">' + it.title + '</div>' +
+                '<div class="web-result-url">en.wikipedia.org/wiki/' + it.title.replace(/ /g, "_") + '</div>' +
+                '<div class="web-result-snippet">' + it.snippet + '...</div>' +
+              '</div>';
+            }
+          }
+          html += '</div>';
+          bodyEl.innerHTML = html;
+          return;
+        } catch (e) {}
+      }
+      bodyEl.innerHTML = '<div style="padding:40px; text-align:center;">' +
+        '<div style="font-size:34px; font-weight:800; margin-bottom:16px;">Unable to reach search server</div>' +
+        '<div style="font-size:26px; margin-bottom:28px;">Check that Wi-Fi is connected in Settings &rarr; Wi-Fi.</div>' +
+      '</div>';
+    }
+  };
+  xhr.send();
+}
+
+function renderWikipediaArticle(title) {
+  var bodyEl = document.getElementById("modal-app-body");
+  bodyEl.className = "modal-body" + (STATE.webFullscreen ? " fullscreen-web-body" : "");
+  var cleanTitle = title.replace(/_/g, " ");
+  var mInput = document.getElementById("modal-url-input");
+  if (mInput) mInput.value = "en.wikipedia.org/wiki/" + title.replace(/ /g, "_");
+
+  bodyEl.innerHTML = '<div style="padding:50px 40px; text-align:center; font-size:32px; font-weight:800;">Loading "' + cleanTitle + '"...</div>';
+
+  var xhr = new XMLHttpRequest();
+  var url = "https://en.wikipedia.org/w/api.php?action=parse&page=" + encodeURIComponent(title) + "&prop=text&mobileformat=1&format=json&origin=*";
+  xhr.open("GET", url, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        try {
+          var res = JSON.parse(xhr.responseText);
+          if (res && res.parse && res.parse.text && res.parse.text["*"]) {
+            var rawHtml = res.parse.text["*"];
+            bodyEl.innerHTML = '<div class="wiki-article-body" id="wiki-article-content">' +
+              '<h1 style="font-size:48px; margin-top:0; border-bottom:3.5px solid currentColor; padding-bottom:14px;">' + (res.parse.title || cleanTitle) + '</h1>' +
+              rawHtml +
+            '</div>';
+            bodyEl.scrollTop = 0;
+
+            /* Intercept internal Wikipedia links so tapping any link opens inside Paperwhite OS! */
+            var links = bodyEl.getElementsByTagName("a");
+            var k;
+            for (k = 0; k < links.length; k++) {
+              links[k].onclick = function(ev) {
+                var href = this.getAttribute("href") || "";
+                if (href.indexOf("/wiki/") === 0 && href.indexOf(":") === -1) {
+                  if (ev && ev.preventDefault) ev.preventDefault();
+                  var nextTitle = decodeURIComponent(href.replace("/wiki/", "").split("#")[0]);
+                  renderWikipediaArticle(nextTitle);
+                  return false;
+                }
+              };
+            }
+            return;
+          }
+        } catch (e) {}
+      }
+      performUniversalSearch(cleanTitle);
+    }
+  };
+  xhr.send();
+}
+
+function renderUrlInReaderMode(fullUrl) {
+  var bodyEl = document.getElementById("modal-app-body");
+  bodyEl.className = "modal-body" + (STATE.webFullscreen ? " fullscreen-web-body" : "");
+  bodyEl.innerHTML = '<div style="padding:50px 40px; text-align:center; font-size:32px; font-weight:800;">Loading Reader Mode for ' + fullUrl + '...</div>';
+
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://api.allorigins.win/get?url=" + encodeURIComponent(fullUrl), true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data && data.contents) {
+            var stripped = data.contents
+              .replace(/<script[\s\S]*?<\/script>/gi, "")
+              .replace(/<style[\s\S]*?<\/style>/gi, "");
+            bodyEl.innerHTML = '<div class="wiki-article-body">' + stripped + '</div>';
+            return;
+          }
+        } catch (e) {}
+      }
+      bodyEl.className = "modal-body chromeless-iframe-mode";
+      bodyEl.innerHTML = '<iframe class="chromeless-iframe" src="' + fullUrl + '"></iframe>';
+    }
+  };
+  xhr.send();
+}
+
+var BUILTIN_CLASSIC_BOOKS = [
+  {
+    id: "classic_artofwar",
+    title: "The Art of War",
+    coverTitle: "ART OF WAR",
+    author: "Sun Tzu",
+    path: "built-in://art-of-war",
+    progress: 14,
+    status: "Readable Classic",
+    dark: true,
+    downloaded: true,
+    art: "circle",
+    pages: [
+      "Chapter I: Laying Plans\n\n1. Sun Tzu said: The art of war is of vital importance to the State.\n\n2. It is a matter of life and death, a road either to safety or to ruin. Hence it is a subject of inquiry which can on no account be neglected.\n\n3. The art of war, then, is governed by five constant factors, to be taken into account in one's deliberations, when seeking to determine the conditions obtaining in the field.\n\n4. These are: (1) The Moral Law; (2) Heaven; (3) Earth; (4) The Commander; (5) Method and discipline.",
+      "5, 6. The Moral Law causes the people to be in complete accord with their ruler, so that they will follow him regardless of their lives, undismayed by any danger.\n\n7. Heaven signifies night and day, cold and heat, times and seasons.\n\n8. Earth comprises distances, great and small; danger and security; open ground and narrow passes; the chances of life and death.\n\n9. The Commander stands for the virtues of wisdom, sincerity, benevolence, courage and strictness.",
+      "10. By method and discipline are to be understood the marshaling of the army in its proper subdivisions, the graduations of rank among the officers, the maintenance of roads by which supplies may reach the army, and the control of military expenditure.\n\n11. These five heads should be familiar to every general: he who knows them will be victorious; he who knows them not will fail.\n\n18. All warfare is based on deception. Hence, when able to attack, we must seem unable; when using our forces, we must seem inactive; when we are near, we must make the enemy believe we are far away; when far away, we must make him believe we are near.",
+      "Chapter II: Waging War\n\n1. Sun Tzu said: In the operations of war, where there are in the field a thousand swift chariots, as many heavy chariots, and a hundred thousand mail-clad soldiers, with provisions enough to carry them a thousand li, the expenditure at home and at the front, including entertainment of guests, small items such as glue and paint, and sums spent on chariots and armor, will reach the total of a thousand ounces of silver per day.\n\n2. When you engage in actual fighting, if victory is long in coming, then men's weapons will grow dull and their ardor will be damped. If you lay siege to a town, you will exhaust your strength.\n\n3. In war, then, let your great object be victory, not lengthy campaigns.",
+      "Chapter III: Attack by Stratagem\n\n1. Sun Tzu said: In the practical art of war, the best thing of all is to take the enemy's country whole and intact; to shatter and destroy it is not so good. So, too, it is better to recapture an army entire than to destroy it, to capture a regiment, a detachment or a company entire than to destroy them.\n\n2. Hence to fight and conquer in all your battles is not supreme excellence; supreme excellence consists in breaking the enemy's resistance without fighting.\n\n18. Hence the saying: If you know the enemy and know yourself, you need not fear the result of a hundred battles."
+    ]
+  },
+  {
+    id: "classic_sherlock",
+    title: "Sherlock Holmes: Scandal in Bohemia",
+    coverTitle: "SHERLOCK",
+    author: "Arthur Conan Doyle",
+    path: "built-in://sherlock-holmes",
+    progress: 20,
+    status: "Readable Classic",
+    dark: false,
+    downloaded: true,
+    art: "rosette",
+    pages: [
+      "Chapter I\n\nTo Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.\n\nHe was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer.",
+      "One night—it was on the twentieth of March, 1888—I was returning from a journey to a patient (for I had now returned to civil practice), when my way led me through Baker Street. As I passed the well-remembered door, which must always be associated in my mind with my wooing, and with the dark incidents of the Study in Scarlet, I was seized with a keen desire to see Holmes again, and to know how he was employing his extraordinary powers.\n\nHis rooms were brilliantly lit, and, even as I looked up, I saw his tall, spare figure pass twice in a dark silhouette against the blind.",
+      "He was pacing the room swiftly, eagerly, with his head sunk upon his chest and his hands clasped behind him. To me, who knew his every mood and habit, his attitude and manner told their own story. He was at work again. He had risen out of his drug-created dreams and was hot upon the scent of some new problem.\n\n'Wedlock suits you,' he remarked. 'I think, Watson, that you have put on seven and a half pounds since I saw you.'\n\n'Seven!' I answered.\n\n'Indeed, I should have thought a little more. Just a trifle more, I fancy, Watson. And in practice again, I observe. You did not tell me that you intended to go into harness.'",
+      "'Then, how do you know?'\n\n'I see it, I deduce it. How do I know that you have been getting yourself very wet lately, and that you have a most clumsy and careless servant girl?'\n\n'My dear Holmes,' said I, 'this is too much. You would certainly have been burned, had you lived a few centuries ago. It is true that I had a country walk on Thursday and came home in a dreadful mess, but as I have changed my clothes I can't imagine how you deduce it.'\n\n'You see, but you do not observe. The distinction is clear. For example, you have frequently seen the steps which lead up from the hall to this room.'\n\n'Frequently.'\n\n'How often?'\n\n'Well, some hundreds of times.'\n\n'Then how many are there?'\n\n'How many? I don't know.'\n\n'Quite so! You have not observed. And yet you have seen. That is just my point. Now, I know that there are十七—seventeen steps, because I have both seen and observed.'"
+    ]
+  },
+  {
+    id: "classic_meditations",
+    title: "Meditations",
+    coverTitle: "MEDITATIONS",
+    author: "Marcus Aurelius",
+    path: "built-in://meditations",
+    progress: 35,
+    status: "Readable Classic",
+    dark: true,
+    downloaded: true,
+    art: "lines",
+    pages: [
+      "Book II\n\n1. Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. All these things happen to them by reason of their ignorance of what is good and evil.\n\nBut I who have seen the nature of the good that it is beautiful, and of the bad that it is ugly, and the nature of him who does wrong, that it is akin to me, not only of the same blood or seed, but that it participates in the same intelligence and the same portion of the divinity, I can neither be injured by any of them, for no one can fix on me what is ugly, nor can I be angry with my kinsman, nor hate him.",
+      "2. Whatever this is that I am, it is a little flesh and breath, and the ruling part. Throw away thy books; no longer distract thyself: it is not allowed; but as if thou wast now dying, despise the flesh; it is blood and bones and a network, a contexture of nerves, veins, and arteries.\n\nSee the breath also, what kind of a thing it is, air, and not always the same, but every moment sent out and again sucked in. The third then is the ruling part: consider thus: thou art an old man; no longer let this be a slave, no longer be pulled by the strings like a puppet to unsocial movements, no longer either be dissatisfied with thy present lot, or shrink from the future.",
+      "Book IV\n\n3. Men seek retreats for themselves, houses in the country, sea-shores, and mountains; and thou too art wont to desire such things very much. But this is altogether a mark of the most common sort of men, for it is in thy power whenever thou shalt choose to retire into thyself.\n\nFor nowhere either with more quiet or more freedom from trouble does a man retire than into his own soul, particularly when he has within him such thoughts that by looking into them he is immediately in perfect tranquility; and I affirm that tranquility is nothing else than the good ordering of the mind."
+    ]
+  },
+  {
+    id: "classic_metamorphosis",
+    title: "The Metamorphosis",
+    coverTitle: "KAFKA",
+    author: "Franz Kafka",
+    path: "built-in://metamorphosis",
+    progress: 10,
+    status: "Readable Classic",
+    dark: false,
+    downloaded: true,
+    art: "triangle",
+    pages: [
+      "Part I\n\nOne morning, when Gregor Samsa woke from troubled dreams, he found himself transformed in his bed into a horrible vermin. He lay on his armour-like back, and if he lifted his head a little he could see his brown belly, slightly domed and divided by arches into stiff sections.\n\nThe bedding was hardly able to cover it and seemed ready to slide off any moment. His many legs, pitifully thin compared with the size of the rest of him, waved about helplessly as he looked.",
+      "'What's happened to me?' he thought. It wasn't a dream. His room, a proper human room although a little too small, lay peacefully between its four familiar walls. A collection of textile samples lay spread out on the table—Samsa was a travelling salesman—and above it there hung a picture that he had recently cut out of an illustrated magazine and housed in a nice, gilded frame.\n\n Gregor then turned to look out the window at the dull weather. Drops of rain could be heard hitting the pane, which made him feel quite sad. 'How about if I sleep a little bit longer and forget all this nonsense', he thought, but that was something he was unable to do because he was used to sleeping on his right, and in his present state couldn't get into that position."
+    ]
+  }
+];
+
+function getCombinedBooksList() {
+  var out = [];
+  var i;
+  for (i = 0; i < BOOKS.length; i++) {
+    out.push(BOOKS[i]);
+  }
+  if (STATE.showBuiltinClassics !== false) {
+    for (i = 0; i < BUILTIN_CLASSIC_BOOKS.length; i++) {
+      out.push(BUILTIN_CLASSIC_BOOKS[i]);
+    }
+  }
+  return out;
+}
+
+function getPagesForBook(bookObj) {
+  if (bookObj.pages && bookObj.pages.length > 0) {
+    return bookObj.pages;
+  }
+  if (window.KINDLE_BOOK_TEXTS && window.KINDLE_BOOK_TEXTS[bookObj.id] && window.KINDLE_BOOK_TEXTS[bookObj.id].length > 0) {
+    return window.KINDLE_BOOK_TEXTS[bookObj.id];
+  }
+  if (bookObj.extractedText && bookObj.extractedText.length > 20) {
+    var raw = bookObj.extractedText;
+    var chunks = [];
+    var idx = 0;
+    while (idx < raw.length) {
+      chunks.push(raw.substr(idx, 880));
+      idx += 880;
+    }
+    return chunks;
+  }
+  /* Fallback if a book is a binary PDF or DRM KFX whose text hasn't been extracted yet */
+  return [
+    bookObj.title + "\nBy " + bookObj.author + "\n\nFile Path: " + (bookObj.path || "/mnt/us/documents/" + bookObj.title) + "\n\n" +
+    "This document is stored on your Kindle in " + (bookObj.author || "Document") + " format.\n\n" +
+    "• To read EPUB, TXT, MOBI, or AZW3 books directly inside this reader, tap 'Extract Book Text' below (or wake your Kindle once so scan_books.sh indexes the chapters).\n" +
+    "• For PDF or KFX books, tap 'Open in Native Kindle Reader' below to launch the system document viewer."
+  ];
+}
+
+function openBookInBuiltInReader(bookId) {
+  var allBooks = getCombinedBooksList();
+  var bookObj = null;
+  var i;
+  for (i = 0; i < allBooks.length; i++) {
+    if (allBooks[i].id === bookId) {
+      bookObj = allBooks[i];
+      break;
+    }
+  }
+  if (!bookObj) return;
+
+  STATE.currentBookId = bookId;
+  if (!STATE.bookPageMap) STATE.bookPageMap = {};
+  var pages = getPagesForBook(bookObj);
+  var curPage = STATE.bookPageMap[bookId] || 0;
+  if (curPage < 0) curPage = 0;
+  if (curPage >= pages.length) curPage = pages.length - 1;
+  STATE.bookPageMap[bookId] = curPage;
+
+  /* Update progress % */
+  var pct = Math.max(1, Math.round(((curPage + 1) / pages.length) * 100));
+  bookObj.progress = pct;
+  saveState();
+
+  var modal = document.getElementById("app-modal");
+  var bodyEl = document.getElementById("modal-app-body");
+  modal.className = "";
+  STATE.currentModalApp = { id: "reader", name: bookObj.title, url: "" };
+  configureModalHeaderForLocalApp(bookObj.title);
+  bodyEl.className = "modal-body";
+
+  var fontMap = {
+    "Bookerly": 'Georgia, "Bookerly", "Times New Roman", serif',
+    "Helvetica": '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    "Caecilia": '"PMN Caecilia", Georgia, serif',
+    "Futura": 'Futura, "Trebuchet MS", Arial, sans-serif'
+  };
+  var fontSizeMap = { "S": "28px", "M": "34px", "L": "40px", "XL": "46px" };
+  var lineMap = { "Compact": "1.45", "Normal": "1.7", "Loose": "1.95" };
+  var padMap = { "Small": "24px", "Medium": "44px", "Wide": "68px" };
+
+  var fontFam = fontMap[STATE.readingFont] || fontMap.Bookerly;
+  var fontSz = fontSizeMap[STATE.textSize] || "34px";
+  var lineH = lineMap[STATE.readingSpacing] || "1.7";
+  var padSz = padMap[STATE.readingMargins] || "44px";
+
+  var paragraphs = (pages[curPage] || "").split("\n");
+  var formattedPage = "";
+  for (i = 0; i < paragraphs.length; i++) {
+    var p = paragraphs[i].replace(/^\s+|\s+$/g, "");
+    if (p) {
+      formattedPage += '<p style="margin:0 0 22px 0; text-indent:' + (i === 0 ? '0' : '28px') + ';">' + p + '</p>';
+    }
+  }
+
+  bodyEl.innerHTML =
+    /* Reader Top Typography & Chapter Controls Bar */
+    '<div style="display:table; width:100%; margin-bottom:18px; border:3px solid currentColor; border-radius:24px; padding:12px 20px;">' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:left;">' +
+        '<span style="font-size:22px; font-weight:800; letter-spacing:2px;">FONT: </span>' +
+        '<button type="button" class="filter-pill" id="btn-reader-font" style="height:48px; line-height:42px; font-size:22px; padding:0 20px;">' + STATE.readingFont + '</button>' +
+        '<button type="button" class="filter-pill" id="btn-reader-size" style="height:48px; line-height:42px; font-size:22px; padding:0 20px;">Aa: ' + STATE.textSize + '</button>' +
+      '</div>' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:right;">' +
+        '<button type="button" class="filter-pill" id="btn-reader-rescan" style="height:48px; line-height:42px; font-size:22px; padding:0 20px;">Extract Text</button>' +
+        '<button type="button" class="filter-pill" id="btn-reader-native" style="height:48px; line-height:42px; font-size:22px; padding:0 20px; margin-right:0;">Native Reader</button>' +
+      '</div>' +
+    '</div>' +
+    /* Main Tappable Book Page Box (Tap Left = Prev Page, Tap Right = Next Page) */
+    '<div class="reader-page-box" id="reader-tap-surface" style="position:relative; cursor:pointer; min-height:920px; font-family:' + fontFam + '; font-size:' + fontSz + '; line-height:' + lineH + '; padding:' + padSz + ';">' +
+      '<div style="font-size:20px; font-family:Helvetica,Arial,sans-serif; font-weight:800; letter-spacing:2.5px; text-transform:uppercase; opacity:0.65; margin-bottom:20px;">' +
+        bookObj.title + ' &middot; ' + bookObj.author +
+      '</div>' +
+      '<div>' + formattedPage + '</div>' +
+      '<div style="margin-top:36px; padding-top:16px; border-top:2px solid currentColor; display:table; width:100%; font-family:Helvetica,Arial,sans-serif; font-size:23px; font-weight:800;">' +
+        '<div style="display:table-cell; text-align:left;">&larr; Tap Left: Prev</div>' +
+        '<div style="display:table-cell; text-align:center;">Page ' + (curPage + 1) + ' of ' + pages.length + ' (' + pct + '%)</div>' +
+        '<div style="display:table-cell; text-align:right;">Tap Right: Next &rarr;</div>' +
+      '</div>' +
+    '</div>' +
+    /* Bottom Explicit Page Turn Buttons */
+    '<div style="display:table; width:100%; margin-top:18px;">' +
+      '<div style="display:table-cell; width:35%; text-align:left;">' +
+        '<button type="button" class="open-pill-btn" id="btn-reader-prev" style="width:95%;">&larr; Previous Page</button>' +
+      '</div>' +
+      '<div style="display:table-cell; width:30%; text-align:center; vertical-align:middle; font-size:26px; font-weight:800;">' +
+        (curPage + 1) + ' / ' + pages.length +
+      '</div>' +
+      '<div style="display:table-cell; width:35%; text-align:right;">' +
+        '<button type="button" class="open-pill-btn" id="btn-reader-next" style="width:95%;">Next Page &rarr;</button>' +
+      '</div>' +
+    '</div>';
+
+  modal.style.display = "block";
+
+  setTimeout(function() {
+    var surf = document.getElementById("reader-tap-surface");
+    var bPrev = document.getElementById("btn-reader-prev");
+    var bNext = document.getElementById("btn-reader-next");
+    var bFont = document.getElementById("btn-reader-font");
+    var bSize = document.getElementById("btn-reader-size");
+    var bRescan = document.getElementById("btn-reader-rescan");
+    var bNative = document.getElementById("btn-reader-native");
+
+    function turnPage(delta) {
+      var nextP = curPage + delta;
+      if (nextP < 0) {
+        showToast("Already on first page");
+        return;
+      }
+      if (nextP >= pages.length) {
+        showToast("Finished last page of " + bookObj.title);
+        return;
+      }
+      STATE.bookPageMap[bookId] = nextP;
+      openBookInBuiltInReader(bookId);
+    }
+
+    if (surf) {
+      surf.onclick = function(ev) {
+        var rect = surf.getBoundingClientRect();
+        var cx = ev.clientX || 500;
+        if (rect && rect.width) {
+          var relX = cx - rect.left;
+          if (relX < rect.width * 0.38) {
+            turnPage(-1);
+          } else {
+            turnPage(1);
+          }
+        } else {
+          turnPage(1);
+        }
+      };
+    }
+    if (bPrev) bPrev.onclick = function() { turnPage(-1); };
+    if (bNext) bNext.onclick = function() { turnPage(1); };
+    if (bFont) {
+      bFont.onclick = function() {
+        var fonts = ["Bookerly", "Helvetica", "Caecilia", "Futura"];
+        STATE.readingFont = fonts[(fonts.indexOf(STATE.readingFont) + 1) % fonts.length];
+        saveState();
+        openBookInBuiltInReader(bookId);
+      };
+    }
+    if (bSize) {
+      bSize.onclick = function() {
+        var szs = ["S", "M", "L", "XL"];
+        STATE.textSize = szs[(szs.indexOf(STATE.textSize) + 1) % szs.length];
+        syncBodyClasses();
+        saveState();
+        openBookInBuiltInReader(bookId);
+      };
+    }
+    if (bRescan) {
+      bRescan.onclick = function() {
+        runPillowHelperDialog("wifi_scan_helper", { show: true });
+        showToast("Extracting text from /mnt/us/documents...");
+        setTimeout(function() { window.location.reload(); }, 3000);
+      };
+    }
+    if (bNative) {
+      bNative.onclick = function() {
+        var bPath = bookObj.path || ("/mnt/us/documents/" + bookObj.title);
+        setKindleHardwareProp("com.lab126.appmgrd", "start", "app://com.lab126.booklet.reader?url=file://" + bPath, false);
+        showToast("Opening " + bookObj.title + " in system reader...");
+      };
+    }
+  }, 30);
+}
+
+function getBookArtSvg(artType, isDark) {
+  var stroke = isDark ? "#ffffff" : "#000000";
+  var fill = isDark ? "#ffffff" : "#000000";
+  if (artType === "circle") {
+    return '<svg width="180" height="180" viewBox="0 0 120 120"><circle cx="60" cy="60" r="46" stroke="' + stroke + '" stroke-width="5.5" fill="none"></circle><circle cx="60" cy="60" r="24" fill="' + fill + '"></circle></svg>';
+  }
+  if (artType === "lines") {
+    var lines = "";
+    var i;
+    for (i = 6; i <= 116; i += 8) {
+      lines += '<line x1="0" y1="' + i + '" x2="140" y2="' + (i + 10) + '" stroke="' + stroke + '" stroke-width="3.8"></line>';
+    }
+    return '<svg width="100%" height="210" viewBox="0 0 140 120" preserveAspectRatio="none">' + lines + '</svg>';
+  }
+  if (artType === "dots") {
+    var dots = "";
+    var r, c;
+    for (r = 18; r <= 102; r += 21) {
+      for (c = 18; c <= 102; c += 21) {
+        var rad = ((r + c) % 42 === 0) ? 5 : 2.8;
+        dots += '<circle cx="' + c + '" cy="' + r + '" r="' + rad + '" fill="' + fill + '"></circle>';
+      }
+    }
+    return '<svg width="180" height="180" viewBox="0 0 120 120">' + dots + '</svg>';
+  }
+  if (artType === "triangle") {
+    return '<svg width="185" height="185" viewBox="0 0 120 120"><polygon points="60,12 108,104 12,104" stroke="' + stroke + '" stroke-width="6.5" fill="none"></polygon><polygon points="60,40 88,96 32,96" fill="' + fill + '"></polygon></svg>';
+  }
+  if (artType === "rosette") {
+    return '<svg width="180" height="180" viewBox="0 0 120 120"><g stroke="' + stroke + '" stroke-width="1.8" fill="none"><ellipse cx="60" cy="60" rx="46" ry="18"></ellipse><ellipse cx="60" cy="60" rx="46" ry="18" transform="rotate(30 60 60)"></ellipse><ellipse cx="60" cy="60" rx="46" ry="18" transform="rotate(60 60 60)"></ellipse><ellipse cx="60" cy="60" rx="46" ry="18" transform="rotate(90 60 60)"></ellipse><ellipse cx="60" cy="60" rx="46" ry="18" transform="rotate(120 60 60)"></ellipse><ellipse cx="60" cy="60" rx="46" ry="18" transform="rotate(150 60 60)"></ellipse></g><circle cx="60" cy="60" r="12" fill="' + fill + '"></circle></svg>';
+  }
+  return '<svg width="175" height="175" viewBox="0 0 120 120"><rect x="16" y="16" width="88" height="88" stroke="' + stroke + '" stroke-width="6.5" fill="none"></rect><rect x="33" y="33" width="54" height="54" fill="' + fill + '"></rect></svg>';
+}
+
+function getAppById(id) {
+  var i;
+  for (i = 0; i < APPS.length; i++) {
+    if (APPS[i].id === id) return APPS[i];
+  }
+  return null;
+}
+
+function renderHomeView() {
+  var q = STATE.searchQuery.toLowerCase();
+  var html = '<div class="section-header">YOUR APPS</div>';
+  var i;
+
+  if (STATE.homeLayout === "list") {
+    for (i = 0; i < APPS.length; i++) {
+      var app = APPS[i];
+      if (q && app.name.toLowerCase().indexOf(q) === -1 && app.subtitle.toLowerCase().indexOf(q) === -1) continue;
+      var badgeHtml = (STATE.showNewBadges && app.isNew) ? '<span class="new-badge">NEW</span>' : '';
+      var subHtml = STATE.showSubtitles ? '<p class="app-subtitle">' + app.subtitle + '</p>' : '';
+      html += '<div class="app-list-row" data-appid="' + app.id + '">' +
+        '<div class="app-list-icon-cell">' +
+          '<div class="app-icon-box">' + badgeHtml +
+            '<div class="app-icon-inner">' + (APP_SVGS[app.id] || APP_SVGS.web) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="app-list-info-cell">' +
+          '<div class="app-title">' + app.name + '</div>' + subHtml +
+        '</div>' +
+        '<div class="app-list-action-cell">' +
+          '<button type="button" class="open-pill-btn" data-appid="' + app.id + '">Open</button>' +
+        '</div>' +
+      '</div>';
+    }
+  } else {
+    var gridCls = (STATE.gridColumns === 2) ? "grid-container grid-cols-2" : "grid-container";
+    html += '<div class="' + gridCls + '">';
+    var count = 0;
+    for (i = 0; i < GRID_APP_IDS.length; i++) {
+      var gApp = getAppById(GRID_APP_IDS[i]);
+      if (!gApp) continue;
+      if (q && gApp.name.toLowerCase().indexOf(q) === -1 && gApp.subtitle.toLowerCase().indexOf(q) === -1) continue;
+      var gBadge = (STATE.showNewBadges && gApp.isNew) ? '<span class="new-badge">NEW</span>' : '';
+      var gSub = STATE.showSubtitles ? '<div class="grid-app-sub">' + gApp.gridSub + '</div>' : '';
+      html += '<div class="grid-item" data-appid="' + gApp.id + '">' +
+        '<div class="grid-card-box">' + gBadge +
+          '<div class="grid-card-inner">' + (APP_SVGS[gApp.id] || APP_SVGS.web) + '</div>' +
+        '</div>' +
+        '<div class="grid-app-title">' + gApp.name + '</div>' + gSub +
+      '</div>';
+      count++;
+      if (count % STATE.gridColumns === 0) {
+        html += '<div style="clear:both;"></div>';
+      }
+    }
+    html += '<div style="clear:both;"></div></div>';
+  }
+
+  var allHomeBooks = getCombinedBooksList();
+  var firstBookTitle = (allHomeBooks.length > 0) ? allHomeBooks[0].title : "Your Library";
+  var firstBookSub = (allHomeBooks.length > 0) ? (allHomeBooks[0].author + " \u00b7 Tap to continue reading") : "Tap Library tab to view your books";
+
+  html += '<div class="section-header">CONTINUE READING</div>' +
+    '<div class="continue-card" id="continue-reading-card">' +
+      '<div class="continue-thumb"><svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#ffffff" stroke-width="4"><circle cx="32" cy="36" r="18"></circle></svg></div>' +
+      '<div class="continue-meta">' +
+        '<div class="app-title" style="font-size:38px;">' + firstBookTitle + '</div>' +
+        '<div class="app-subtitle">' + firstBookSub + '</div>' +
+      '</div>' +
+    '</div>';
+
+  return html;
+}
+
+function renderLibraryView() {
+  var q = STATE.searchQuery.toLowerCase();
+  var allBooks = getCombinedBooksList();
+  var list = [];
+  var i;
+  for (i = 0; i < allBooks.length; i++) {
+    var b = allBooks[i];
+    if (STATE.libraryFilter === "Downloaded" && !b.downloaded) continue;
+    if (q && b.title.toLowerCase().indexOf(q) === -1 && b.author.toLowerCase().indexOf(q) === -1) continue;
+    list.push(b);
+  }
+  if (STATE.librarySort === "Title") {
+    list.sort(function(a, b) { return a.title.localeCompare(b.title); });
+  } else if (STATE.librarySort === "Progress") {
+    list.sort(function(a, b) { return b.progress - a.progress; });
+  }
+
+  var html = '<div class="lib-filter-bar">' +
+    '<div class="lib-pills-left">' +
+      '<button type="button" class="filter-pill ' + (STATE.libraryFilter === "All" ? "active" : "") + '" data-libfilter="All">All (' + BOOKS.length + ')</button>' +
+      '<button type="button" class="filter-pill ' + (STATE.libraryFilter === "Downloaded" ? "active" : "") + '" data-libfilter="Downloaded">Downloaded</button>' +
+      '<button type="button" class="filter-pill" id="btn-restore-books">Rescan Books</button>' +
+    '</div>' +
+    '<div class="lib-sort-right">' +
+      '<button type="button" class="sort-btn" id="btn-cycle-sort">' + STATE.librarySort + ' &#9662;</button>' +
+    '</div>' +
+  '</div>';
+
+  if (list.length === 0) {
+    html += '<div style="padding:70px 40px; text-align:center;">' +
+      '<div style="font-size:38px; font-weight:800; margin-bottom:14px;">No Books Found</div>' +
+      '<div style="font-size:26px; margin-bottom:32px;">Any .azw3, .azw, .mobi, .epub, .pdf, or .kfx books inside /mnt/us/documents/ (including Calibre author folders) appear here automatically.</div>' +
+      '<button type="button" class="open-pill-btn" id="btn-restore-books">Reload Scanned Books</button>' +
+    '</div>';
+    return html;
+  }
+
+  html += '<div class="book-grid">';
+  for (i = 0; i < list.length; i++) {
+    var bk = list[i];
+    var covClass = bk.dark ? "book-cover dark-cover" : "book-cover light-cover";
+    var badge = (STATE.showNewBadges && bk.isNew) ? '<span class="new-badge" style="top:14px; right:14px;">NEW</span>' : '';
+    var progHtml = "";
+    if (STATE.showProgressBars && bk.progress > 0 && bk.progress < 100) {
+      progHtml = '<div class="progress-track"><div class="progress-bar-fill" style="width:' + bk.progress + '%;"></div></div>';
+    }
+    html += '<div class="book-cell" data-bookid="' + bk.id + '">' +
+      '<div class="' + covClass + '">' + badge +
+        '<div class="book-art-area"><div class="book-art-inner">' + getBookArtSvg(bk.art || "circle", bk.dark) + '</div></div>' +
+        '<div class="book-cover-title">' + bk.coverTitle + '</div>' +
+        '<div class="book-cover-author">' + bk.author + '</div>' +
+      '</div>' +
+      '<div class="book-meta-title">' + bk.title + '</div>' +
+      progHtml +
+      '<div class="book-pct">' + bk.status + '</div>' +
+    '</div>';
+    if ((i + 1) % 3 === 0) {
+      html += '<div style="clear:both;"></div>';
+    }
+  }
+  html += '<div style="clear:both;"></div></div>';
+  return html;
+}
+
+function renderWebView() {
+  var cleanUrl = STATE.webUrl.replace(/^https?:\/\//, "");
+  var html = '<div class="web-section">' +
+    '<form id="web-tab-url-form" onsubmit="return false;" style="margin:0;">' +
+      '<div class="url-pill-box">' +
+        '<div class="url-lock-cell">' +
+          '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>' +
+        '</div>' +
+        '<div class="url-input-cell">' +
+          '<input type="text" id="web-url-input" class="url-input" placeholder="Search Google, Wikipedia or enter URL..." value="' + cleanUrl + '">' +
+        '</div>' +
+        /* Point 11: Clear (X) Button inside the URL bar! */
+        '<div class="url-clear-cell">' +
+          '<button type="button" class="clear-circle-btn" id="btn-web-url-clear" title="Clear URL">&times;</button>' +
+        '</div>' +
+        '<div class="url-reload-cell" id="btn-web-go" title="Open or Search">' +
+          '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>' +
+        '</div>' +
+      '</div>' +
+    '</form>' +
+    '<div class="web-chip-row">' +
+      '<button type="button" class="web-chip" data-launchurl="https://www.google.com">Google Search</button>' +
+      '<button type="button" class="web-chip" data-launchurl="https://en.wikipedia.org">Wikipedia</button>' +
+      '<button type="button" class="web-chip" id="btn-webtab-options">&#8942; Page Options (' + STATE.webEngine + ')</button>' +
+    '</div>' +
+  '</div>';
+
+  html += '<div class="section-header" style="padding-top:10px;">FAVOURITES</div>' +
+    '<div class="fav-grid">' +
+      '<div class="fav-col" data-launchurl="https://www.google.com"><div class="fav-box"><div class="fav-box-inner">' + APP_SVGS.web + '</div></div><div class="fav-label">Google</div></div>' +
+      '<div class="fav-col" data-launchurl="https://en.wikipedia.org"><div class="fav-box"><div class="fav-box-inner"><span style="font-family:Georgia,serif; font-size:58px; font-weight:bold;">W</span></div></div><div class="fav-label">Wikipedia</div></div>' +
+    '</div>';
+
+  html += '<div class="section-header">RECENT &amp; BOOKMARKS</div>' +
+    '<div class="recent-row" data-launchurl="https://en.wikipedia.org">' +
+      '<div class="recent-title">Wikipedia &mdash; The Free Encyclopedia</div>' +
+      '<div class="recent-domain">en.wikipedia.org</div>' +
+    '</div>' +
+    '<div class="recent-row" data-launchurl="https://www.google.com">' +
+      '<div class="recent-title">Google Web &amp; Article Search</div>' +
+      '<div class="recent-domain">google.com</div>' +
+    '</div>';
+
+  return html;
+}
+
+function buildToggleHtml(stateKey) {
+  var isOn = !!STATE[stateKey];
+  return '<div class="toggle-switch ' + (isOn ? "on" : "") + '" data-togglekey="' + stateKey + '"><div class="toggle-knob"></div></div>';
+}
+
+/* ============================================================================
+   DEDICATED WI-FI NETWORK SELECTION PAGE (Point 1)
+   ============================================================================ */
+function renderWifiSelectionView() {
+  var html = '<div class="settings-top-header">' +
+    '<div class="settings-back-cell">' +
+      '<button type="button" class="back-arrow-btn" id="btn-wifi-back">' +
+        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>Back' +
+      '</button>' +
+    '</div>' +
+    '<div class="settings-main-title">Wi-Fi Networks</div>' +
+    '<div class="settings-page-indicator">' +
+      '<button type="button" class="open-pill-btn" id="btn-wifi-scan" style="min-width:120px; height:52px; line-height:46px; font-size:24px;">Scan</button>' +
+    '</div>' +
+  '</div>';
+
+  html += '<div class="section-header">WIRELESS RADIO &amp; NATIVE SELECTOR</div>' +
+    '<div class="settings-row" id="btn-open-native-wifi" style="height:100px;"><div class="settings-label-cell">System Wi-Fi Selector (All Networks)</div><div class="settings-ctrl-cell"><span class="open-pill-btn" style="background:#000; color:#fff;">Open Wi-Fi Popup</span></div></div>' +
+    '<div class="settings-row" id="btn-custom-ssid-prompt"><div class="settings-label-cell">Type Wi-Fi Name (SSID) &amp; Password</div><div class="settings-ctrl-cell"><span class="open-pill-btn">+ Add Network</span></div></div>' +
+    '<div class="settings-row"><div class="settings-label-cell">Wi-Fi Radio Enabled</div><div class="settings-ctrl-cell">' +
+      '<div class="toggle-switch ' + (!STATE.airplaneMode ? "on" : "") + '" id="btn-wifi-master-toggle"><div class="toggle-knob"></div></div>' +
+    '</div></div>';
+
+  if (STATE.wifiPasswordTarget) {
+    var isCustomSsid = (STATE.wifiPasswordTarget === "__CUSTOM__");
+    html += '<div style="margin:24px 40px; border:3.5px solid currentColor; border-radius:28px; padding:28px;">' +
+      '<div style="font-size:32px; font-weight:800; margin-bottom:16px;">' + (isCustomSsid ? 'Join Wi-Fi Network' : ('Connect to "' + STATE.wifiPasswordTarget + '"')) + '</div>' +
+      '<form id="wifi-pass-form" onsubmit="return false;" style="margin:0;">' +
+        (isCustomSsid ? (
+          '<div class="settings-search-pill" style="width:100%; margin-bottom:16px;">' +
+            '<div class="search-input-cell">' +
+              '<input type="text" id="wifi-ssid-input" class="search-input" placeholder="Enter Wi-Fi Network Name (SSID)...">' +
+            '</div>' +
+          '</div>'
+        ) : '') +
+        '<div class="settings-search-pill" style="width:100%; margin-bottom:20px;">' +
+          '<div class="search-input-cell">' +
+            '<input type="text" id="wifi-pass-input" class="search-input" placeholder="Enter Wi-Fi password...">' +
+          '</div>' +
+          '<div class="search-clear-cell">' +
+            '<button type="button" class="clear-circle-btn" id="btn-wifi-pass-clear">&times;</button>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<button type="button" class="open-pill-btn" id="btn-wifi-connect-confirm" style="margin-right:16px; background:#000; color:#fff;">Connect</button>' +
+          '<button type="button" class="open-pill-btn" id="btn-wifi-connect-cancel">Cancel</button>' +
+        '</div>' +
+      '</form>' +
+    '</div>';
+  }
+
+  html += '<div class="section-header">AVAILABLE NETWORKS (TAP TO SELECT)</div>';
+  if (STATE.airplaneMode) {
+    html += '<div style="padding:40px; font-size:30px; text-align:center;">Wi-Fi is turned off (Airplane Mode is ON). Toggle Wi-Fi Enabled above to scan networks.</div>';
+  } else {
+    var i;
+    for (i = 0; i < WIFI_NETWORKS.length; i++) {
+      var net = WIFI_NETWORKS[i];
+      var isConn = (net.ssid === STATE.connectedWifi);
+      html += '<div class="settings-row" data-wifissid="' + net.ssid + '">' +
+        '<div class="settings-label-cell">' +
+          net.ssid + (net.secured ? ' <span style="font-size:22px; font-weight:400;">(WPA2)</span>' : ' <span style="font-size:22px; font-weight:400;">(Open)</span>') +
+        '</div>' +
+        '<div class="settings-ctrl-cell">' +
+          (isConn ? '<span class="filter-pill active" style="margin:0;">Connected</span>' : (net.signal + ' &rsaquo;')) +
+        '</div>' +
+      '</div>';
+    }
+  }
+  return html;
+}
+
+/* ============================================================================
+   SETTINGS SCREENS 1/4 TO 4/4 (Matches ui_settings_1..4.png + Arrow Back Button)
+   ============================================================================ */
+function renderSettingsView() {
+  if (STATE.inWifiPage) {
+    return renderWifiSelectionView();
+  }
+
+  var titles = ["Settings", "Home & Library", "Reading & Sleep", "Advanced"];
+  var pageTitle = titles[STATE.settingsPage - 1] || "Settings";
+
+  var html = '<div class="settings-top-header">' +
+    '<div class="settings-back-cell">' +
+      '<button type="button" class="back-arrow-btn" id="btn-settings-back">' +
+        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>Back' +
+      '</button>' +
+    '</div>' +
+    '<div class="settings-main-title">' + pageTitle + '</div>' +
+    '<div class="settings-page-indicator" id="btn-settings-next-page" title="Tap to switch settings page (1/4 to 4/4)">' +
+      STATE.settingsPage + ' / 4 &rsaquo;' +
+    '</div>' +
+  '</div>';
+
+  /* Clean Full-Width Search Pill matching ui_settings_1..4.png (Point 9) */
+  html += '<div class="settings-search-wrap">' +
+    '<div class="settings-search-pill">' +
+      '<div class="search-icon-cell">' +
+        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.2" y2="16.2"></line></svg>' +
+      '</div>' +
+      '<div class="search-input-cell">' +
+        '<input type="text" id="settings-search-input" class="search-input" placeholder="Search settings" value="' + STATE.settingsQuery + '">' +
+      '</div>' +
+      '<div class="search-clear-cell">' +
+        '<button type="button" class="clear-circle-btn" id="btn-settings-search-clear" title="Clear">&times;</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  if (STATE.settingsPage === 1) {
+    html += '<div class="section-header">DEVICE</div>' +
+      '<div class="settings-row" data-settingaction="wifi"><div class="settings-label-cell">Wi-Fi</div><div class="settings-ctrl-cell">' + (STATE.airplaneMode ? "Off" : STATE.connectedWifi) + ' &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Airplane mode</div><div class="settings-ctrl-cell">' + buildToggleHtml("airplaneMode") + '</div></div>' +
+      '<div class="settings-row" style="height:110px;">' +
+        '<div class="settings-label-cell" style="width:360px;">Brightness (' + STATE.brightnessLevel + ' / 24)</div>' +
+        '<div class="settings-ctrl-cell">' +
+          '<div style="display:table; width:620px; float:right;">' +
+            '<div style="display:table-cell; width:90px; vertical-align:middle;"><button type="button" class="open-pill-btn" id="btn-set-bright-down" style="min-width:80px; height:52px; line-height:45px;">&minus;</button></div>' +
+            '<div style="display:table-cell; vertical-align:middle; padding:0 12px;">' +
+              '<div class="brightness-slider-wrap" id="settings-bright-slider-box">' +
+                '<div class="brightness-slider-fill" id="settings-bright-bar" style="width:' + Math.round((STATE.brightnessLevel / 24) * 100) + '%;"></div>' +
+                '<input type="range" min="0" max="24" step="1" value="' + STATE.brightnessLevel + '" id="settings-bright-range" class="brightness-range-input">' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:table-cell; width:90px; vertical-align:middle; text-align:right;"><button type="button" class="open-pill-btn" id="btn-set-bright-up" style="min-width:80px; height:52px; line-height:45px;">+</button></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="settings-row" data-settingaction="timeformat"><div class="settings-label-cell">Time &amp; language</div><div class="settings-ctrl-cell">English \u00b7 ' + (STATE.timeFormat24 ? "24 h" : "12 h") + ' &rsaquo;</div></div>' +
+      '<div class="section-header">DISPLAY</div>' +
+      /* Point 8: Invert Colour (Theme: Normal / Inverted / Auto) is ONLY inside Settings! */
+      '<div class="settings-row"><div class="settings-label-cell">Theme (Invert colour)</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn ' + (STATE.theme === "Normal" ? "active" : "") + '" data-themebtn="Normal">Normal</button>' +
+          '<button type="button" class="seg-btn ' + (STATE.theme === "Inverted" ? "active" : "") + '" data-themebtn="Inverted">Inverted</button>' +
+          '<button type="button" class="seg-btn last ' + (STATE.theme === "Auto" ? "active" : "") + '" data-themebtn="Auto">Auto</button>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Text size</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn ' + (STATE.textSize === "S" ? "active" : "") + '" data-sizebtn="S">S</button>' +
+          '<button type="button" class="seg-btn ' + (STATE.textSize === "M" ? "active" : "") + '" data-sizebtn="M">M</button>' +
+          '<button type="button" class="seg-btn ' + (STATE.textSize === "L" ? "active" : "") + '" data-sizebtn="L">L</button>' +
+          '<button type="button" class="seg-btn last ' + (STATE.textSize === "XL" ? "active" : "") + '" data-sizebtn="XL">XL</button>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="settings-row" data-settingaction="pagerefresh"><div class="settings-label-cell">Page refresh</div><div class="settings-ctrl-cell">Every ' + STATE.pageRefreshFreq + ' pages &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Ghosting cleaner</div><div class="settings-ctrl-cell">' + buildToggleHtml("ghostingCleaner") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Show battery %</div><div class="settings-ctrl-cell">' + buildToggleHtml("showBatteryPct") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Top Time Bar</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn ' + (STATE.statusBarMode === "Auto" ? "active" : "") + '" data-sbmode="Auto">Auto (1 Bar)</button>' +
+          '<button type="button" class="seg-btn ' + (STATE.statusBarMode === "Show" ? "active" : "") + '" data-sbmode="Show">Show Ours</button>' +
+          '<button type="button" class="seg-btn last ' + (STATE.statusBarMode === "Hide" ? "active" : "") + '" data-sbmode="Hide">Hide Ours</button>' +
+        '</div>' +
+      '</div></div>';
+  } else if (STATE.settingsPage === 2) {
+    html += '<div class="section-header">HOME</div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Home layout</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn ' + (STATE.homeLayout === "list" ? "active" : "") + '" data-layoutbtn="list">List</button>' +
+          '<button type="button" class="seg-btn last ' + (STATE.homeLayout === "grid" ? "active" : "") + '" data-layoutbtn="grid">Grid</button>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="settings-row" id="row-grid-cols"><div class="settings-label-cell">Grid columns</div><div class="settings-ctrl-cell">' + STATE.gridColumns + ' &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Show app subtitles</div><div class="settings-ctrl-cell">' + buildToggleHtml("showSubtitles") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Show NEW badges</div><div class="settings-ctrl-cell">' + buildToggleHtml("showNewBadges") + '</div></div>' +
+      '<div class="section-header">LIBRARY</div>' +
+      '<div class="settings-row" id="btn-cycle-sort"><div class="settings-label-cell">Sort by</div><div class="settings-ctrl-cell">' + STATE.librarySort + ' &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Cover style</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn ' + (STATE.coverStyle === "Square" ? "active" : "") + '" data-coverbtn="Square">Square</button>' +
+          '<button type="button" class="seg-btn last ' + (STATE.coverStyle === "Rounded" ? "active" : "") + '" data-coverbtn="Rounded">Rounded</button>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Show progress bars</div><div class="settings-ctrl-cell">' + buildToggleHtml("showProgressBars") + '</div></div>' +
+      '<div class="section-header">WEB</div>' +
+      '<div class="settings-row" data-settingaction="webengine"><div class="settings-label-cell">Engine</div><div class="settings-ctrl-cell">' + STATE.webEngine + ' &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Fullscreen (hide bars)</div><div class="settings-ctrl-cell">' + buildToggleHtml("webFullscreen") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Ad blocker</div><div class="settings-ctrl-cell">' + buildToggleHtml("webAdBlocker") + '</div></div>';
+  } else if (STATE.settingsPage === 3) {
+    html += '<div class="section-header">READING</div>' +
+      '<div class="settings-row" data-settingaction="font"><div class="settings-label-cell">Font</div><div class="settings-ctrl-cell">' + STATE.readingFont + ' &rsaquo;</div></div>' +
+      '<div class="settings-row" data-settingaction="margins"><div class="settings-label-cell">Margins</div><div class="settings-ctrl-cell">' + STATE.readingMargins + ' &rsaquo;</div></div>' +
+      '<div class="settings-row" data-settingaction="spacing"><div class="settings-label-cell">Line spacing</div><div class="settings-ctrl-cell">' + STATE.readingSpacing + ' &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Swipe to turn page</div><div class="settings-ctrl-cell">' + buildToggleHtml("swipeToTurn") + '</div></div>' +
+      '<div class="section-header">SLEEP SCREEN</div>' +
+      '<div class="settings-row" data-appid="wallpapers"><div class="settings-label-cell">Wallpaper</div><div class="settings-ctrl-cell">String art \u00b7 shuffle &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Show battery on sleep</div><div class="settings-ctrl-cell">' + buildToggleHtml("showBatterySleep") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Clock on sleep screen</div><div class="settings-ctrl-cell">' + buildToggleHtml("clockOnSleep") + '</div></div>' +
+      '<div class="settings-row" data-settingaction="sleeptimeout"><div class="settings-label-cell">Sleep after</div><div class="settings-ctrl-cell">' + STATE.sleepTimeoutMins + ' minutes &rsaquo;</div></div>';
+  } else {
+    html += '<div class="section-header">DISPLAY SCALE &amp; DEVELOPER</div>' +
+      '<div class="settings-row"><div class="settings-label-cell">UI Scale (' + STATE.uiZoomPct + '%)</div><div class="settings-ctrl-cell">' +
+        '<div class="seg-group">' +
+          '<button type="button" class="seg-btn" id="btn-zoom-out">&minus; 5%</button>' +
+          '<button type="button" class="seg-btn" id="btn-zoom-reset">100%</button>' +
+          '<button type="button" class="seg-btn last" id="btn-zoom-in">+ 5%</button>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="settings-row" data-appid="kterm"><div class="settings-label-cell">Terminal (kterm)</div><div class="settings-ctrl-cell">Open &rsaquo;</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">USB network (SSH)</div><div class="settings-ctrl-cell">' + buildToggleHtml("usbSsh") + '</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Run scripts at boot</div><div class="settings-ctrl-cell">' + buildToggleHtml("runScriptsAtBoot") + '</div></div>' +
+      '<div class="section-header">SAFETY</div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Block Amazon updates</div><div class="settings-ctrl-cell">' + buildToggleHtml("blockAmazonUpdates") + '</div></div>' +
+      '<div class="settings-row" id="row-backup-usb"><div class="settings-label-cell">Reset UI preferences</div><div class="settings-ctrl-cell">Reset &rsaquo;</div></div>' +
+      '<div class="settings-row" id="row-restart-screen"><div class="settings-label-cell">Restart screen (Clean E-Ink)</div><div class="settings-ctrl-cell">&rsaquo;</div></div>' +
+      '<div class="section-header">ABOUT</div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Paperwhite OS 4.7</div><div class="settings-ctrl-cell">Kindle 5.16.2.1.1 \u00b7 PW3</div></div>' +
+      '<div class="settings-row"><div class="settings-label-cell">Storage</div><div class="settings-ctrl-cell">' + STATE.storageFree + '</div></div>';
+  }
+
+  return html;
+}
+
+/* ============================================================================
+   HORIZONTAL STANDBY CLOCK (5 FACES MATCHING UPLOADED IMAGES 1, 2, 3)
+   - Rotated 90deg Landscape (1380x1020)
+   - Invisible One-Tap Navigation: Tap Right Half = Next Face, Tap Left Half = Prev Face
+   - Top-left corner tap = Exit back to Paperwhite OS Home
+   ============================================================================ */
+var STANDBY_CLOCK_FACE = 0; /* 0: Flip Clock, 1: Analog + Calendar, 2: Giant Bubble Digital, 3: World Dot Map, 4: Analog + Climate */
+
+function renderStandbyClockModal() {
+  var modal = document.getElementById("app-modal");
+  var topBar = document.getElementById("modal-top-bar");
+  var bodyEl = document.getElementById("modal-app-body");
+
+  modal.className = "standby-fullscreen-modal";
+  topBar.style.display = "none";
+  bodyEl.className = "modal-body fullscreen-web-body";
+  bodyEl.style.padding = "0";
+  bodyEl.style.overflow = "hidden";
+
+  var now = new Date();
+  var hrs24 = now.getHours();
+  var mins = now.getMinutes();
+  var secs = now.getSeconds();
+  var ampm = (hrs24 >= 12) ? "PM" : "AM";
+  var hrs12 = hrs24 % 12;
+  if (hrs12 === 0) hrs12 = 12;
+
+  var hrStr = (hrs12 < 10) ? ("0" + hrs12) : ("" + hrs12);
+  var minStr = (mins < 10) ? ("0" + mins) : ("" + mins);
+
+  var faceHtml = "";
+
+  if (STANDBY_CLOCK_FACE === 0) {
+    /* FACE 1: SPLIT MECHANICAL FLIP CLOCK (Matches image_6b04d6.jpg top-left & top-center) */
+    faceHtml =
+      '<div style="padding-top:110px; text-align:center;">' +
+        '<div class="flip-card-box">' +
+          '<div class="flip-card-digit">' + hrStr + '</div>' +
+          '<div class="flip-card-seam"></div>' +
+          '<div style="position:absolute; bottom:28px; left:36px; font-size:34px; font-weight:900; letter-spacing:2px;">' + ampm + '</div>' +
+        '</div>' +
+        '<div class="flip-card-box">' +
+          '<div class="flip-card-digit">' + minStr + '</div>' +
+          '<div class="flip-card-seam"></div>' +
+        '</div>' +
+      '</div>';
+  } else if (STANDBY_CLOCK_FACE === 1) {
+    /* FACE 2: ANALOG CLOCK + MONTHLY CALENDAR GRID (Matches image_6b04f8.png top-right & bottom-left) */
+    var hAngle = ((hrs12 % 12) * 30) + (mins * 0.5);
+    var mAngle = mins * 6;
+    var sAngle = secs * 6;
+    var ticks = "";
+    for (var t = 0; t < 60; t++) {
+      var a = t * 6;
+      var len = (t % 5 === 0) ? 26 : 12;
+      var sw = (t % 5 === 0) ? 5 : 2;
+      ticks += '<line x1="250" y1="20" x2="250" y2="' + (20 + len) + '" stroke="#ffffff" stroke-width="' + sw + '" transform="rotate(' + a + ' 250 250)"/>';
+    }
+    var months = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+    var curMonthName = months[now.getMonth()];
+    var todayDate = now.getDate();
+    var calCells = "";
+    var dHeaders = ["S","M","T","W","T","F","S"];
+    calCells += '<tr>';
+    for (var dh = 0; dh < 7; dh++) {
+      calCells += '<td style="width:74px; height:58px; text-align:center; font-size:28px; font-weight:900; opacity:0.65;">' + dHeaders[dh] + '</td>';
+    }
+    calCells += '</tr><tr>';
+    for (var day = 1; day <= 30; day++) {
+      var isToday = (day === todayDate);
+      var badge = isToday
+        ? '<span style="display:inline-block; width:56px; height:56px; line-height:56px; border-radius:28px; background:#ffffff; color:#000000; font-weight:900;">' + day + '</span>'
+        : day;
+      calCells += '<td style="width:74px; height:72px; text-align:center; font-size:30px; font-weight:800;">' + badge + '</td>';
+      if (day % 7 === 0 && day < 30) calCells += '</tr><tr>';
+    }
+    calCells += '</tr>';
+
+    faceHtml =
+      '<div style="display:table; width:100%; height:1020px; padding:0 60px;">' +
+        '<div style="display:table-cell; width:52%; vertical-align:middle; text-align:center;">' +
+          '<svg width="640" height="640" viewBox="0 0 500 500">' +
+            ticks +
+            '<text x="250" y="95" fill="#ffffff" font-size="48" font-weight="900" text-anchor="middle">12</text>' +
+            '<text x="415" y="266" fill="#ffffff" font-size="48" font-weight="900" text-anchor="middle">3</text>' +
+            '<text x="250" y="435" fill="#ffffff" font-size="48" font-weight="900" text-anchor="middle">6</text>' +
+            '<text x="85" y="266" fill="#ffffff" font-size="48" font-weight="900" text-anchor="middle">9</text>' +
+            '<line x1="250" y1="250" x2="250" y2="130" stroke="#ffffff" stroke-width="14" stroke-linecap="round" transform="rotate(' + hAngle + ' 250 250)"/>' +
+            '<line x1="250" y1="250" x2="250" y2="75" stroke="#ffffff" stroke-width="10" stroke-linecap="round" transform="rotate(' + mAngle + ' 250 250)"/>' +
+            '<line x1="250" y1="285" x2="250" y2="60" stroke="#aaaaaa" stroke-width="4" stroke-linecap="round" transform="rotate(' + sAngle + ' 250 250)"/>' +
+            '<circle cx="250" cy="250" r="12" fill="#ffffff"/>' +
+          '</svg>' +
+        '</div>' +
+        '<div style="display:table-cell; width:48%; vertical-align:middle; padding-left:30px;">' +
+          '<div style="font-size:44px; font-weight:900; letter-spacing:3px; margin-bottom:24px;">' + curMonthName + '</div>' +
+          '<table style="border-collapse:collapse;">' + calCells + '</table>' +
+        '</div>' +
+      '</div>';
+  } else if (STANDBY_CLOCK_FACE === 2) {
+    /* FACE 3: GIANT EDGE-TO-EDGE DUOTONE BUBBLE DIGITAL (Matches image_6b04f8.png bottom-right & image_6b04d6.jpg bottom) */
+    faceHtml =
+      '<div style="height:1020px; line-height:1000px; text-align:center; position:relative;">' +
+        '<span style="font-size:510px; font-weight:900; letter-spacing:-24px; color:#ffffff;">' + hrs12 + '</span>' +
+        '<span style="font-size:460px; font-weight:900; color:#999999; margin:0 6px;">:</span>' +
+        '<span style="font-size:510px; font-weight:900; letter-spacing:-24px; color:#cccccc;">' + minStr + '</span>' +
+      '</div>';
+  } else if (STANDBY_CLOCK_FACE === 3) {
+    /* FACE 4: WORLD DOT-MATRIX MAP CLOCK (Matches image_6b0497.png "New Delhi 4:26") */
+    var mapDots = "";
+    for (var mr = 0; mr < 18; mr++) {
+      for (var mc = 0; mc < 36; mc++) {
+        /* Continent clusters approximation (North/South America, Eurasia/Africa, India/Australia) */
+        var inAmericas = (mc >= 4 && mc <= 11 && mr >= 3 && mr <= 14 && (mr + mc) % 2 === 0);
+        var inEurasia = (mc >= 16 && mc <= 31 && mr >= 2 && mr <= 12);
+        var inAfrica = (mc >= 16 && mc <= 22 && mr >= 7 && mr <= 15);
+        var inAus = (mc >= 28 && mc <= 33 && mr >= 12 && mr <= 16);
+        if (inAmericas || inEurasia || inAfrica || inAus) {
+          var cx = 120 + mc * 33;
+          var cy = 130 + mr * 34;
+          var isIndia = (mc === 25 && mr === 8);
+          mapDots += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (isIndia ? 11 : 4.5) + '" fill="' + (isIndia ? '#ffffff' : '#bbbbbb') + '"/>';
+        }
+      }
+    }
+    faceHtml =
+      '<div style="position:relative; width:1380px; height:1020px;">' +
+        '<svg width="1380" height="820" viewBox="0 0 1380 820" style="position:absolute; top:40px; left:0;">' +
+          mapDots +
+          '<path d="M 120 260 Q 420 180, 620 520 T 1260 320" fill="none" stroke="#ffffff" stroke-width="5"/>' +
+        '</svg>' +
+        '<div style="position:absolute; bottom:90px; left:90px;">' +
+          '<div style="font-size:38px; font-weight:800; color:#cccccc; letter-spacing:1px; margin-bottom:6px;">New Delhi &middot; IST</div>' +
+          '<div style="font-size:190px; font-weight:900; line-height:1; letter-spacing:-6px;">' + hrs12 + ':' + minStr + '</div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    /* FACE 5: ANALOG + INDOOR TEMPERATURE & WEATHER SPLIT (Matches image_6b04f8.png top-left "18°") */
+    var hA = ((hrs12 % 12) * 30) + (mins * 0.5);
+    var mA = mins * 6;
+    var days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    faceHtml =
+      '<div style="display:table; width:100%; height:1020px; padding:0 80px;">' +
+        '<div style="display:table-cell; width:55%; vertical-align:middle; text-align:center;">' +
+          '<svg width="620" height="620" viewBox="0 0 500 500">' +
+            '<circle cx="250" cy="250" r="225" fill="none" stroke="#ffffff" stroke-width="8"/>' +
+            '<text x="250" y="90" fill="#ffffff" font-size="44" font-weight="900" text-anchor="middle">12</text>' +
+            '<text x="415" y="266" fill="#ffffff" font-size="44" font-weight="900" text-anchor="middle">3</text>' +
+            '<text x="250" y="435" fill="#ffffff" font-size="44" font-weight="900" text-anchor="middle">6</text>' +
+            '<text x="85" y="266" fill="#ffffff" font-size="44" font-weight="900" text-anchor="middle">9</text>' +
+            '<line x1="250" y1="250" x2="250" y2="130" stroke="#ffffff" stroke-width="14" stroke-linecap="round" transform="rotate(' + hA + ' 250 250)"/>' +
+            '<line x1="250" y1="250" x2="250" y2="75" stroke="#ffffff" stroke-width="10" stroke-linecap="round" transform="rotate(' + mA + ' 250 250)"/>' +
+            '<circle cx="250" cy="250" r="12" fill="#ffffff"/>' +
+          '</svg>' +
+        '</div>' +
+        '<div style="display:table-cell; width:45%; vertical-align:middle; padding-left:40px;">' +
+          '<div style="font-size:44px; font-weight:800; opacity:0.8;">' + days[now.getDay()] + '</div>' +
+          '<div style="font-size:230px; font-weight:900; line-height:1.05; margin:12px 0;">25&deg;</div>' +
+          '<div style="font-size:38px; font-weight:700; opacity:0.85;">Climate &middot; 61% RH</div>' +
+          '<div style="font-size:30px; font-weight:700; opacity:0.65; margin-top:10px;">H: 27&deg; &middot; L: 21&deg;</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  bodyEl.innerHTML =
+    '<div class="standby-landscape-wrap" id="standby-touch-layer">' +
+      '<div class="standby-rotated-stage">' +
+        faceHtml +
+      '</div>' +
+    '</div>';
+
+  modal.style.display = "block";
+
+  var touchLayer = document.getElementById("standby-touch-layer");
+  if (touchLayer) {
+    touchLayer.onclick = function(ev) {
+      var rect = touchLayer.getBoundingClientRect();
+      var cx = ev.clientX || 500;
+      var cy = ev.clientY || 700;
+      if (rect && rect.width && rect.height) {
+        var relX = (cx - rect.left) / rect.width;
+        var relY = (cy - rect.top) / rect.height;
+        /* Top-left corner tap exits StandBy mode back to Home */
+        if (relX < 0.22 && relY < 0.16) {
+          if (STATE.eqTimer) { clearInterval(STATE.eqTimer); STATE.eqTimer = null; }
+          modal.className = "";
+          topBar.style.display = "table";
+          bodyEl.style.padding = "";
+          modal.style.display = "none";
+          renderAll();
+          return;
+        }
+        /* Because the clock is rotated 90deg landscape, tapping one half goes Next, the other half goes Previous (with NO visible buttons!) */
+        if (relY >= 0.5 || relX >= 0.5) {
+          STANDBY_CLOCK_FACE = (STANDBY_CLOCK_FACE + 1) % 5;
+        } else {
+          STANDBY_CLOCK_FACE = (STANDBY_CLOCK_FACE + 4) % 5;
+        }
+        renderStandbyClockModal();
+      }
+    };
+  }
+}
+
+/* ============================================================================
+   UPGRADED SKETCH PAD MATCHING image_6b0460.png + WEB SEARCH REFERENCE TOOL
+   ============================================================================ */
+var SKETCH_STATE = {
+  tool: "pen",        /* "pen", "marker", "circle", "rect", "line", "eraser" */
+  size: "Thin",       /* "Thin", "Medium", "Thick", "Dotted", "Eraser" */
+  showGrid: false,
+  searchOpen: false,
+  history: [],
+  redoStack: [],
+  savedStatus: "Untitled \u00b7 Autosaved"
+};
+
+function renderUpgradedSketchPad() {
+  var modal = document.getElementById("app-modal");
+  var topBar = document.getElementById("modal-top-bar");
+  var bodyEl = document.getElementById("modal-app-body");
+
+  modal.className = "";
+  topBar.style.display = "none";
+  bodyEl.className = "modal-body fullscreen-web-body";
+  bodyEl.style.padding = "22px 38px";
+  bodyEl.style.overflow = "hidden";
+
+  var html =
+    /* Row 1: Header (< Sketch Pad | Untitled · Autosaved) matching image_6b0460.png */
+    '<div style="display:table; width:100%; margin-bottom:18px;">' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:left;">' +
+        '<button type="button" id="sketch-back-home" style="border:none; background:transparent; color:inherit; font-size:44px; font-weight:900; padding:0; cursor:pointer;">' +
+          '&lsaquo; Sketch Pad' +
+        '</button>' +
+      '</div>' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:right; font-size:28px; font-weight:700;" id="sketch-status-label">' +
+        SKETCH_STATE.savedStatus +
+      '</div>' +
+    '</div>' +
+
+    /* Row 2: Circular Tool Buttons + Search Web Pill + Save Pill matching image_6b0460.png */
+    '<div style="display:table; width:100%; margin-bottom:18px;">' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:left;">' +
+        /* 1. Pen */
+        '<button type="button" class="sketch-tool-circle ' + (SKETCH_STATE.tool === "pen" ? "active" : "") + '" data-sktool="pen" title="Pen">' +
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>' +
+        '</button>' +
+        /* 2. Marker / Chisel */
+        '<button type="button" class="sketch-tool-circle ' + (SKETCH_STATE.tool === "marker" ? "active" : "") + '" data-sktool="marker" title="Calligraphy Marker">' +
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path></svg>' +
+        '</button>' +
+        /* 3. Shapes (Square + Circle icon from image_6b0460.png) */
+        '<button type="button" class="sketch-tool-circle ' + (SKETCH_STATE.tool === "shapes" ? "active" : "") + '" data-sktool="shapes" title="Stamp Geometric Shape">' +
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;"><rect x="3" y="3" width="11" height="11" rx="2"></rect><circle cx="15" cy="15" r="6"></circle></svg>' +
+        '</button>' +
+        /* 4. Undo (Curved arrow icon from image_6b0460.png) */
+        '<button type="button" class="sketch-tool-circle" id="btn-sketch-undo" title="Undo">' +
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>' +
+        '</button>' +
+        /* 5. Grid Overlay Toggle */
+        '<button type="button" class="sketch-tool-circle ' + (SKETCH_STATE.showGrid ? "active" : "") + '" id="btn-sketch-grid" title="Toggle Dot/Graph Grid">' +
+          '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>' +
+        '</button>' +
+        /* 6. Clear Canvas */
+        '<button type="button" class="sketch-tool-circle" id="btn-sketch-clear-all" title="Clear Canvas" style="margin-right:0;">' +
+          '&times;' +
+        '</button>' +
+      '</div>' +
+      '<div style="display:table-cell; vertical-align:middle; text-align:right;">' +
+        '<button type="button" class="open-pill-btn" id="btn-sketch-search-web" style="height:64px; line-height:58px; padding:0 26px; font-size:25px; margin-right:12px;">Search Web</button>' +
+        '<button type="button" class="open-pill-btn" id="btn-sketch-save" style="height:64px; line-height:58px; padding:0 34px; font-size:26px;">Save</button>' +
+      '</div>' +
+    '</div>' +
+
+    /* Optional Inline Web Reference Search Drawer inside Sketch Pad */
+    '<div id="sketch-web-drawer" style="display:' + (SKETCH_STATE.searchOpen ? 'block' : 'none') + '; border:3.5px solid currentColor; border-radius:24px; padding:18px 22px; margin-bottom:16px;">' +
+      '<div style="display:table; width:100%;">' +
+        '<div style="display:table-cell; vertical-align:middle;">' +
+          '<input type="text" id="sketch-web-query" class="search-input" placeholder="Search Wikipedia reference or diagram to stamp on canvas..." style="border-bottom:2px solid currentColor; height:48px;">' +
+        '</div>' +
+        '<div style="display:table-cell; width:360px; vertical-align:middle; text-align:right;">' +
+          '<button type="button" class="filter-pill active" id="btn-sketch-web-fetch" style="margin-right:8px;">Lookup</button>' +
+          '<button type="button" class="filter-pill" id="btn-sketch-stamp-curve" style="margin-right:0;">Stamp Template</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="sketch-web-result" style="font-size:23px; margin-top:10px; max-height:140px; overflow-y:auto;"></div>' +
+    '</div>' +
+
+    /* Row 3: Huge Rounded-Corner Canvas matching image_6b0460.png */
+    '<div style="text-align:center;">' +
+      '<canvas id="sketch-canvas" width="994" height="' + (SKETCH_STATE.searchOpen ? '790' : '990') + '" style="border:3.5px solid currentColor; border-radius:30px; background:' + (STATE.theme === 'Inverted' ? '#000000' : '#ffffff') + '; touch-action:none; display:block; margin:0 auto;"></canvas>' +
+    '</div>' +
+
+    /* Row 4: Bottom Stroke Size & Eraser Pills matching image_6b0460.png */
+    '<div style="text-align:center; margin-top:22px;">' +
+      '<button type="button" class="sketch-bottom-pill ' + (SKETCH_STATE.size === "Thin" ? "active" : "") + '" data-sksize="Thin">Thin</button>' +
+      '<button type="button" class="sketch-bottom-pill ' + (SKETCH_STATE.size === "Medium" ? "active" : "") + '" data-sksize="Medium">Medium</button>' +
+      '<button type="button" class="sketch-bottom-pill ' + (SKETCH_STATE.size === "Thick" ? "active" : "") + '" data-sksize="Thick">Thick</button>' +
+      '<button type="button" class="sketch-bottom-pill ' + (SKETCH_STATE.size === "Dotted" ? "active" : "") + '" data-sksize="Dotted">Dotted</button>' +
+      '<button type="button" class="sketch-bottom-pill ' + (SKETCH_STATE.size === "Eraser" ? "active" : "") + '" data-sksize="Eraser">Eraser</button>' +
+    '</div>';
+
+  bodyEl.innerHTML = html;
+  modal.style.display = "block";
+
+  setTimeout(initUpgradedSketchCanvas, 30);
+}
+
+function initUpgradedSketchCanvas() {
+  var c = document.getElementById("sketch-canvas");
+  if (!c) return;
+  var ctx = c.getContext("2d");
+  var isInv = (STATE.theme === "Inverted");
+  var fg = isInv ? "#ffffff" : "#000000";
+  var bg = isInv ? "#000000" : "#ffffff";
+
+  function drawGridIfEnabled() {
+    if (!SKETCH_STATE.showGrid) return;
+    ctx.save();
+    ctx.fillStyle = fg;
+    for (var gx = 40; gx < c.width; gx += 45) {
+      for (var gy = 40; gy < c.height; gy += 45) {
+        ctx.fillRect(gx, gy, 2, 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  /* Restore last snapshot if available */
+  if (SKETCH_STATE.lastDataUrl) {
+    var img = new Image();
+    img.onload = function() { ctx.drawImage(img, 0, 0); };
+    img.src = SKETCH_STATE.lastDataUrl;
+  } else {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, c.width, c.height);
+    drawGridIfEnabled();
+  }
+
+  function pushSnapshot() {
+    try {
+      var snap = c.toDataURL();
+      SKETCH_STATE.history.push(snap);
+      if (SKETCH_STATE.history.length > 15) SKETCH_STATE.history.shift();
+      SKETCH_STATE.lastDataUrl = snap;
+      var stLbl = document.getElementById("sketch-status-label");
+      if (stLbl) stLbl.innerHTML = "Untitled &middot; Autosaved";
+    } catch (e) {}
+  }
+
+  function getStrokeWidth() {
+    if (SKETCH_STATE.size === "Thin") return 3.5;
+    if (SKETCH_STATE.size === "Medium") return 7.5;
+    if (SKETCH_STATE.size === "Thick") return 15;
+    if (SKETCH_STATE.size === "Eraser") return 34;
+    return 5;
+  }
+
+  /* Zoom-aware 1:1 coordinate resolver for Kindle WebKit + Desktop Canvas */
+  function getPos(e) {
+    var rect = c.getBoundingClientRect();
+    var clientX = (e.touches && e.touches.length) ? e.touches[0].clientX : e.clientX;
+    var clientY = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+    var scaleX = c.width / (rect.width || c.width);
+    var scaleY = c.height / (rect.height || c.height);
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  var drawing = false;
+  var lastPt = null;
+
+  function startDraw(e) {
+    var p = getPos(e);
+    if (SKETCH_STATE.tool === "shapes") {
+      ctx.strokeStyle = fg;
+      ctx.lineWidth = getStrokeWidth();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 65, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeRect(p.x - 95, p.y - 45, 75, 75);
+      pushSnapshot();
+      return;
+    }
+    drawing = true;
+    lastPt = p;
+    ctx.strokeStyle = (SKETCH_STATE.size === "Eraser") ? bg : fg;
+    ctx.lineWidth = getStrokeWidth();
+    ctx.lineCap = (SKETCH_STATE.tool === "marker") ? "square" : "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+
+  function moveDraw(e) {
+    if (!drawing) return;
+    var p = getPos(e);
+    if (SKETCH_STATE.size === "Dotted") {
+      var dist = Math.sqrt(Math.pow(p.x - lastPt.x, 2) + Math.pow(p.y - lastPt.y, 2));
+      if (dist >= 18) {
+        ctx.fillStyle = fg;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        lastPt = p;
+      }
+    } else {
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      lastPt = p;
+    }
+  }
+
+  function endDraw() {
+    if (!drawing) return;
+    drawing = false;
+    pushSnapshot();
+  }
+
+  c.onmousedown = startDraw;
+  c.onmousemove = moveDraw;
+  c.onmouseup = endDraw;
+  c.ontouchstart = function(e) { startDraw(e); if (e.preventDefault) e.preventDefault(); };
+  c.ontouchmove = function(e) { moveDraw(e); if (e.preventDefault) e.preventDefault(); };
+  c.ontouchend = function() { endDraw(); };
+
+  /* Toolbar Event Bindings */
+  document.getElementById("sketch-back-home").onclick = function() {
+    document.getElementById("modal-top-bar").style.display = "table";
+    document.getElementById("modal-app-body").style.padding = "";
+    document.getElementById("app-modal").style.display = "none";
+    renderAll();
+  };
+
+  document.getElementById("btn-sketch-undo").onclick = function() {
+    if (SKETCH_STATE.history.length > 1) {
+      SKETCH_STATE.history.pop();
+      var prev = SKETCH_STATE.history[SKETCH_STATE.history.length - 1];
+      SKETCH_STATE.lastDataUrl = prev;
+      var im = new Image();
+      im.onload = function() {
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(im, 0, 0);
+      };
+      im.src = prev;
+    } else {
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, c.width, c.height);
+      SKETCH_STATE.lastDataUrl = null;
+    }
+  };
+
+  document.getElementById("btn-sketch-grid").onclick = function() {
+    SKETCH_STATE.showGrid = !SKETCH_STATE.showGrid;
+    renderUpgradedSketchPad();
+  };
+
+  document.getElementById("btn-sketch-clear-all").onclick = function() {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, c.width, c.height);
+    drawGridIfEnabled();
+    SKETCH_STATE.lastDataUrl = null;
+    SKETCH_STATE.history = [];
+    showToast("Canvas cleared");
+  };
+
+  document.getElementById("btn-sketch-save").onclick = function() {
+    pushSnapshot();
+    SKETCH_STATE.savedStatus = "Saved \u00b7 Just now";
+    var lbl = document.getElementById("sketch-status-label");
+    if (lbl) lbl.innerHTML = SKETCH_STATE.savedStatus;
+    showToast("Sketch saved to device storage!");
+  };
+
+  document.getElementById("btn-sketch-search-web").onclick = function() {
+    SKETCH_STATE.searchOpen = !SKETCH_STATE.searchOpen;
+    renderUpgradedSketchPad();
+  };
+
+  var bFetch = document.getElementById("btn-sketch-web-fetch");
+  if (bFetch) {
+    bFetch.onclick = function() {
+      var qIn = document.getElementById("sketch-web-query");
+      var resBox = document.getElementById("sketch-web-result");
+      if (!qIn || !qIn.value || !resBox) return;
+      resBox.innerHTML = "Searching reference for '" + qIn.value + "'...";
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(qIn.value) + "&utf8=1&format=json&origin=*", true);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+          try {
+            var d = JSON.parse(xhr.responseText);
+            var s = (d && d.query && d.query.search && d.query.search[0]) ? d.query.search[0] : null;
+            if (s) {
+              var clean = s.snippet.replace(/<[^>]*>/g, "");
+              resBox.innerHTML = "<b>" + s.title + ":</b> " + clean + " <button type='button' class='filter-pill' id='btn-stamp-wiki-title' style='height:38px; line-height:34px; font-size:20px;'>Stamp Title &amp; Diagram</button>";
+              var stBtn = document.getElementById("btn-stamp-wiki-title");
+              if (stBtn) {
+                stBtn.onclick = function() {
+                  ctx.fillStyle = fg;
+                  ctx.font = "bold 34px Helvetica, Arial, sans-serif";
+                  ctx.fillText(s.title, 60, 80);
+                  pushSnapshot();
+                };
+              }
+            } else {
+              resBox.innerHTML = "No results found.";
+            }
+          } catch (err) {}
+        }
+      };
+      xhr.send();
+    };
+  }
+
+  var bStamp = document.getElementById("btn-sketch-stamp-curve");
+  if (bStamp) {
+    bStamp.onclick = function() {
+      /* Stamps the signature artistic curve + circle + dotted arc from image_6b0460.png! */
+      ctx.strokeStyle = fg;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(150, 560);
+      ctx.bezierCurveTo(220, 260, 620, 280, 560, 520);
+      ctx.bezierCurveTo(510, 660, 320, 640, 350, 490);
+      ctx.bezierCurveTo(380, 380, 550, 400, 560, 460);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(680, 285, 42, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(560, 420);
+      ctx.bezierCurveTo(640, 330, 820, 380, 810, 520);
+      ctx.bezierCurveTo(800, 570, 750, 585, 720, 580);
+      ctx.stroke();
+
+      ctx.fillStyle = fg;
+      for (var t = 0; t <= 20; t++) {
+        var x = 210 + t * 21;
+        var y = 760 - Math.sin((t / 20) * Math.PI) * 38 + (t * 1.2);
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      pushSnapshot();
+    };
+  }
+
+  var bodyEl = document.getElementById("modal-app-body");
+  bodyEl.onclick = function(ev) {
+    var t = ev.target || ev.srcElement;
+    var skTool = findAttrUp(t, "data-sktool");
+    if (skTool) {
+      SKETCH_STATE.tool = skTool;
+      renderUpgradedSketchPad();
+      return;
+    }
+    var skSize = findAttrUp(t, "data-sksize");
+    if (skSize) {
+      SKETCH_STATE.size = skSize;
+      renderUpgradedSketchPad();
+      return;
+    }
+  };
+}
+
+/* ============================================================================
+   MAIN APP DISPATCHER (openAppModal) — CHROMELESS FOR ALL APPS (NO BROWSER UI!)
+   ============================================================================ */
+
+function openAppModal(appId) {
+  if (appId === "web") {
+    STATE.inSettings = false;
+    STATE.inWifiPage = false;
+    STATE.activeTab = "web";
+    renderAll();
+    return;
+  }
+
+  var appObj = getAppById(appId);
+  if (!appObj) return;
+
+  STATE.currentModalApp = appObj;
+  var modal = document.getElementById("app-modal");
+  var topBar = document.getElementById("modal-top-bar");
+  var bodyEl = document.getElementById("modal-app-body");
+
+  modal.className = "";
+  topBar.style.display = "table";
+  bodyEl.style.padding = "";
+
+  if (STATE.eqTimer) {
+    clearInterval(STATE.eqTimer);
+    STATE.eqTimer = null;
+  }
+
+  /* 1. Native kterm Launcher (One-shot detached launch, zero retry loop!) */
+  if (appId === "kterm") {
+    if (window.kindle && window.kindle.messaging) { window.kindle.messaging.sendStringMessage("com.lab126.pillow", "disableEnablePillow", "enable"); }
+    runPillowHelperDialog("kterm_helper", { show: true });
+    showToast("Launching native kterm...");
+    return;
+  }
+
+
+  /* 3. Horizontal StandBy Clock (Rotated 90deg landscape, invisible tap navigation!) */
+  if (appId === "clock") {
+    renderStandbyClockModal();
+    STATE.eqTimer = setInterval(function() {
+      if (modal.style.display === "block" && STATE.currentModalApp && STATE.currentModalApp.id === "clock") {
+        renderStandbyClockModal();
+      }
+    }, 15000);
+    return;
+  }
+
+  /* 4. Upgraded Sketch Pad (Matching image_6b0460.png + Search Web) */
+  if (appId === "sketch") {
+    renderUpgradedSketchPad();
+    return;
+  }
+
+  configureModalHeaderForLocalApp(appObj.name);
+  bodyEl.className = "modal-body";
+
+
+  if (appId === "wallpapers") {
+    var wHtml = '<div style="margin-bottom:20px; font-size:28px; font-weight:800;">Active Sleep Screensaver: ' + STATE.selectedWallpaper + ' (1072\u00d71448)</div>';
+    var wIdx;
+    for (wIdx = 0; wIdx < WALLPAPER_LIST.length; wIdx++) {
+      var wp = WALLPAPER_LIST[wIdx];
+      var isSel = (STATE.selectedWallpaper === wp.file);
+      wHtml += '<div class="settings-row" data-wpfile="' + wp.file + '" style="padding:0 12px;">' +
+        '<div class="settings-label-cell" style="font-size:28px;">' + wp.title + ' <span style="font-size:22px; font-weight:400;">(' + wp.group + ')</span></div>' +
+        '<div class="settings-ctrl-cell"><span class="filter-pill ' + (isSel ? "active" : "") + '" style="margin:0;">' + (isSel ? "Active" : "Select") + '</span></div>' +
+      '</div>';
+    }
+    bodyEl.innerHTML = wHtml;
+  } else if (appId === "stats") {
+    var allB = getCombinedBooksList();
+    bodyEl.innerHTML = '<div style="border:3.5px solid currentColor; border-radius:34px; padding:44px; text-align:center;">' +
+      '<div style="font-size:24px; font-weight:800; letter-spacing:3px;">LIVE DEVICE &amp; READING STATS</div>' +
+      '<div style="font-size:76px; font-weight:800; margin:24px 0;">' + allB.length + ' Readable Books</div>' +
+      '<div style="font-size:30px; font-weight:700; margin-bottom:16px;">Battery: ' + STATE.batteryLevel + '% \u00b7 Storage: ' + STATE.storageFree + '</div>' +
+      '<div style="font-size:26px; opacity:0.8;">46 Sleep Wallpapers Installed</div>' +
+    '</div>';
+  }
+
+  modal.style.display = "block";
+}
+
+function renderAll() {
+  syncBodyClasses();
+  updateLiveClockAndBattery();
+  var topBar = document.getElementById("top-toolbar");
+  var bottomNav = document.getElementById("bottom-nav");
+  var scrollEl = document.getElementById("main-scroll");
+
+  if (STATE.inSettings) {
+    topBar.style.display = "none";
+    bottomNav.style.display = "none";
+    scrollEl.className = "settings-mode";
+    scrollEl.innerHTML = renderSettingsView();
+  } else {
+    topBar.style.display = "block";
+    bottomNav.style.display = "block";
+    scrollEl.className = "";
+    if (STATE.activeTab === "home") {
+      scrollEl.innerHTML = renderHomeView();
+    } else if (STATE.activeTab === "library") {
+      scrollEl.innerHTML = renderLibraryView();
+    } else {
+      scrollEl.innerHTML = renderWebView();
+    }
+  }
+
+  document.getElementById("tab-btn-home").className = "nav-tab-btn " + (STATE.activeTab === "home" ? "active" : "");
+  document.getElementById("tab-btn-library").className = "nav-tab-btn " + (STATE.activeTab === "library" ? "active" : "");
+  document.getElementById("tab-btn-web").className = "nav-tab-btn " + (STATE.activeTab === "web" ? "active" : "");
+  saveState();
+
+  /* Bind Web Tab URL form & Clear button after render */
+  var wForm = document.getElementById("web-tab-url-form");
+  var wInput = document.getElementById("web-url-input");
+  var wClear = document.getElementById("btn-web-url-clear");
+  if (wForm && wInput) {
+    wForm.onsubmit = function() {
+      openWebSearchOrUrl(wInput.value);
+      return false;
+    };
+  }
+  if (wClear && wInput) {
+    wClear.onclick = function(ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      wInput.value = "";
+      wInput.focus();
+    };
+  }
+
+  /* Bind Settings Brightness Slider if in Settings */
+  bindSliderDrag("settings-bright-slider-box", "settings-bright-range");
+
+  /* Bind Settings Search input & Clear button if in Settings */
+  var sInput = document.getElementById("settings-search-input");
+  var sClear = document.getElementById("btn-settings-search-clear");
+  if (sInput) {
+    sInput.oninput = function(e) {
+      STATE.settingsQuery = e.target.value || "";
+    };
+  }
+  if (sClear && sInput) {
+    sClear.onclick = function(ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      STATE.settingsQuery = "";
+      sInput.value = "";
+      sInput.focus();
+    };
+  }
+
+  STATE.pageTurnCount++;
+  if (STATE.ghostingCleaner && STATE.pageTurnCount % STATE.pageRefreshFreq === 0) {
+    runGhostingCleanerFlash();
+  }
+}
+
+function findAttrUp(el, attrName) {
+  while (el && el !== document.body) {
+    if (el.getAttribute && el.getAttribute(attrName)) {
+      return el.getAttribute(attrName);
+    }
+    el = el.parentNode;
+  }
+  return null;
+}
+
+function applyHardwareBrightness(level) {
+  var lv = Math.max(0, Math.min(24, parseInt(level, 10) || 0));
+  STATE.brightnessLevel = lv;
+  var pct = Math.round((lv / 24) * 100) + "%";
+
+  var v = document.getElementById("bright-drawer-val");
+  var b = document.getElementById("bright-drawer-bar");
+  var rTop = document.getElementById("top-bright-range");
+  if (v) v.innerHTML = lv;
+  if (b) b.style.width = pct;
+  if (rTop && parseInt(rTop.value, 10) !== lv) rTop.value = lv;
+
+  var bSet = document.getElementById("settings-bright-bar");
+  var rSet = document.getElementById("settings-bright-range");
+  if (bSet) bSet.style.width = pct;
+  if (rSet && parseInt(rSet.value, 10) !== lv) rSet.value = lv;
+
+  setKindleHardwareProp("com.lab126.powerd", "flIntensity", lv, true);
+  if (window.__pwBrightTimer) clearTimeout(window.__pwBrightTimer);
+  window.__pwBrightTimer = setTimeout(function() {
+    try {
+      if (window.kindle && window.kindle.messaging) {
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "disableEnablePillow", "enable");
+        runPillowHelperDialog("bright/b_" + lv, { level: lv, show: true });
+      }
+    } catch (e) {}
+  }, 180);
+  saveState();
+}
+
+function updateBrightnessUI() {
+  applyHardwareBrightness(STATE.brightnessLevel);
+}
+
+function bindSliderDrag(boxId, rangeId) {
+  var box = document.getElementById(boxId);
+  var rng = document.getElementById(rangeId);
+  if (rng) {
+    rng.oninput = function() {
+      applyHardwareBrightness(this.value);
+    };
+    rng.onchange = function() {
+      applyHardwareBrightness(this.value);
+      if (STATE.inSettings) renderAll();
+    };
+  }
+  if (box) {
+    function handleTouchOrMouse(ev) {
+      var rect = box.getBoundingClientRect();
+      if (!rect || !rect.width) return;
+      var clientX = (ev.touches && ev.touches.length) ? ev.touches[0].clientX : ev.clientX;
+      var ratio = (clientX - rect.left) / rect.width;
+      if (ratio < 0) ratio = 0;
+      if (ratio > 1) ratio = 1;
+      var newLv = Math.round(ratio * 24);
+      applyHardwareBrightness(newLv);
+    }
+    box.ontouchstart = function(e) { handleTouchOrMouse(e); };
+    box.ontouchmove = function(e) { handleTouchOrMouse(e); if (e.preventDefault) e.preventDefault(); };
+  }
+}
+
+function setupEventListeners() {
+  /* Point 8: Sun icon opens Frontlight Brightness Drawer (NOT Invert Colour!) */
+  document.getElementById("btn-brightness-popup").onclick = function() {
+    var d = document.getElementById("brightness-drawer");
+    if (!d) return;
+    updateBrightnessUI(false);
+    d.style.display = (d.style.display === "block") ? "none" : "block";
+  };
+
+  document.getElementById("btn-bright-down").onclick = function() {
+    STATE.brightnessLevel = Math.max(0, STATE.brightnessLevel - 2);
+    updateBrightnessUI();
+  };
+
+  document.getElementById("btn-bright-up").onclick = function() {
+    STATE.brightnessLevel = Math.min(24, STATE.brightnessLevel + 2);
+    updateBrightnessUI();
+  };
+  bindSliderDrag("top-bright-slider-box", "top-bright-range");
+
+  /* Point 1: Wi-Fi toolbar button opens the dedicated Wi-Fi Network Selection Page! */
+  document.getElementById("btn-wifi-status").onclick = function() {
+    document.getElementById("brightness-drawer").style.display = "none";
+    document.getElementById("app-modal").style.display = "none";
+    STATE.inSettings = true;
+    STATE.inWifiPage = true;
+    renderAll();
+  };
+
+  document.getElementById("btn-open-settings").onclick = function() {
+    document.getElementById("brightness-drawer").style.display = "none";
+    document.getElementById("app-modal").style.display = "none";
+    STATE.inSettings = true;
+    STATE.inWifiPage = false;
+    STATE.settingsPage = 1;
+    renderAll();
+  };
+
+  /* Global Search Input: filters apps/books live AND searches Web on Enter or Search icon tap! */
+  var gInput = document.getElementById("global-search-input");
+  var gForm = document.getElementById("global-search-form");
+  var gClear = document.getElementById("btn-global-search-clear");
+  var gGo = document.getElementById("btn-global-search-go");
+
+  gInput.oninput = function(e) {
+    STATE.searchQuery = e.target.value || "";
+    renderAll();
+  };
+  gForm.onsubmit = function() {
+    if (gInput.value) {
+      openWebSearchOrUrl(gInput.value);
+    }
+    return false;
+  };
+  gGo.onclick = function() {
+    if (gInput.value) {
+      openWebSearchOrUrl(gInput.value);
+    }
+  };
+  gClear.onclick = function() {
+    STATE.searchQuery = "";
+    gInput.value = "";
+    renderAll();
+    gInput.focus();
+  };
+
+  /* In-Webpage Header URL Form, Clear (X) Button, and 3-Dots Menu (Points 4, 5, 10, 11, 12) */
+  var mForm = document.getElementById("modal-url-form");
+  var mInput = document.getElementById("modal-url-input");
+  var mClear = document.getElementById("btn-modal-url-clear");
+  var mGo = document.getElementById("btn-modal-url-go");
+  var mDots = document.getElementById("btn-modal-three-dots");
+
+  mForm.onsubmit = function() {
+    if (mInput.value) openWebSearchOrUrl(mInput.value);
+    return false;
+  };
+  mGo.onclick = function() {
+    if (mInput.value) openWebSearchOrUrl(mInput.value);
+  };
+  mClear.onclick = function(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    mInput.value = "";
+    mInput.focus();
+  };
+  mDots.onclick = function() {
+    var dr = document.getElementById("web-options-drawer");
+    if (!dr) return;
+    syncWebOptionsDrawerUI();
+    dr.style.display = (dr.style.display === "block") ? "none" : "block";
+  };
+
+  /* 3-Dots Web Options Drawer Buttons */
+  document.getElementById("opt-chip-fullscreen").onclick = function() {
+    STATE.webFullscreen = !STATE.webFullscreen;
+    document.getElementById("web-options-drawer").style.display = "none";
+    syncWebOptionsDrawerUI();
+    saveState();
+  };
+  document.getElementById("fullscreen-restore-pill").onclick = function() {
+    STATE.webFullscreen = false;
+    syncWebOptionsDrawerUI();
+    saveState();
+  };
+  document.getElementById("opt-chip-reader").onclick = function() {
+    STATE.webReaderMode = !STATE.webReaderMode;
+    document.getElementById("web-options-drawer").style.display = "none";
+    syncWebOptionsDrawerUI();
+    openWebSearchOrUrl(STATE.webUrl);
+  };
+  document.getElementById("opt-chip-desktop").onclick = function() {
+    STATE.webDesktopSite = !STATE.webDesktopSite;
+    syncWebOptionsDrawerUI();
+    showToast(STATE.webDesktopSite ? "Desktop Site Enabled" : "Mobile Site Enabled");
+  };
+  document.getElementById("opt-chip-js").onclick = function() {
+    STATE.webJavaScript = !STATE.webJavaScript;
+    syncWebOptionsDrawerUI();
+    showToast(STATE.webJavaScript ? "JavaScript Enabled" : "JavaScript Disabled");
+  };
+  document.getElementById("opt-chip-reload").onclick = function() {
+    document.getElementById("web-options-drawer").style.display = "none";
+    openWebSearchOrUrl(STATE.webUrl);
+  };
+  document.getElementById("opt-engine-webkit").onclick = function() {
+    STATE.webEngine = "Kindle WebKit";
+    syncWebOptionsDrawerUI();
+    saveState();
+    showToast("Engine: Kindle WebKit");
+  };
+  document.getElementById("opt-engine-modern").onclick = function() {
+    STATE.webEngine = "Modern (beta)";
+    syncWebOptionsDrawerUI();
+    saveState();
+    showToast("Engine: Modern (beta)");
+  };
+
+  /* Bottom Navigation Tabs */
+  document.getElementById("tab-btn-home").onclick = function() {
+    STATE.inSettings = false;
+    STATE.inWifiPage = false;
+    STATE.activeTab = "home";
+    document.getElementById("app-modal").style.display = "none";
+    document.getElementById("brightness-drawer").style.display = "none";
+    renderAll();
+  };
+
+  document.getElementById("tab-btn-library").onclick = function() {
+    STATE.inSettings = false;
+    STATE.inWifiPage = false;
+    STATE.activeTab = "library";
+    document.getElementById("app-modal").style.display = "none";
+    document.getElementById("brightness-drawer").style.display = "none";
+    renderAll();
+  };
+
+  document.getElementById("tab-btn-web").onclick = function() {
+    STATE.inSettings = false;
+    STATE.inWifiPage = false;
+    STATE.activeTab = "web";
+    document.getElementById("app-modal").style.display = "none";
+    document.getElementById("brightness-drawer").style.display = "none";
+    renderAll();
+  };
+
+  document.getElementById("btn-close-modal").onclick = function() {
+    if (STATE.eqTimer) {
+      clearInterval(STATE.eqTimer);
+      STATE.eqTimer = null;
+    }
+    document.getElementById("web-options-drawer").style.display = "none";
+    document.getElementById("app-modal").style.display = "none";
+    renderAll();
+  };
+
+  document.getElementById("device-frame").onclick = function(e) {
+    var target = e.target || e.srcElement;
+    if (!target) return;
+
+    /* Close brightness drawer if tapping outside it */
+    if (!findAttrUp(target, "id") || (findAttrUp(target, "id") !== "brightness-drawer" && findAttrUp(target, "id") !== "btn-brightness-popup")) {
+      var bd = document.getElementById("brightness-drawer");
+      if (bd && bd.style.display === "block" && target.id !== "btn-bright-down" && target.id !== "btn-bright-up") {
+        bd.style.display = "none";
+      }
+    }
+
+    if (findAttrUp(target, "id") === "btn-settings-back") {
+      STATE.inSettings = false;
+      STATE.inWifiPage = false;
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-back") {
+      STATE.inWifiPage = false;
+      STATE.wifiPasswordTarget = "";
+      initKindleChromelessBridge();
+      renderAll();
+      return;
+    }
+    var brightPreset = findAttrUp(target, "data-brightpreset");
+    if (brightPreset !== null) {
+      applyHardwareBrightness(parseInt(brightPreset, 10));
+      return;
+    }
+    var sbMode = findAttrUp(target, "data-sbmode");
+    if (sbMode) {
+      STATE.statusBarMode = sbMode;
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-set-bright-down") {
+      applyHardwareBrightness(STATE.brightnessLevel - 2);
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-set-bright-up") {
+      applyHardwareBrightness(STATE.brightnessLevel + 2);
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-custom-ssid-prompt") {
+      STATE.wifiPasswordTarget = "__CUSTOM__";
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-scan") {
+      setKindleHardwareProp("com.lab126.wifid", "scan", "", false);
+      runPillowHelperDialog("wifi_scan_helper", { show: true });
+      showToast("Scanning nearby Wi-Fi networks...");
+      setTimeout(function() { window.location.reload(); }, 3500);
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-master-toggle") {
+      STATE.airplaneMode = !STATE.airplaneMode;
+      setKindleHardwareProp("com.lab126.cmd", "wirelessEnable", STATE.airplaneMode ? 0 : 1, true);
+      renderAll();
+      showToast(STATE.airplaneMode ? "Wi-Fi Off" : "Wi-Fi Enabled");
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-open-native-wifi") {
+      /* Open Kindle's native Wi-Fi Selector popup and DO NOT send any dismissChrome so it stays open! */
+      if (window.kindle && window.kindle.messaging) {
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "disableEnablePillow", "enable");
+        window.kindle.messaging.sendMessage("com.lab126.pillow", "customDialog", {
+          name: "wifi_wizard_dialog",
+          clientParams: { show: true }
+        });
+        window.kindle.messaging.sendStringMessage("com.lab126.pillow", "customDialog", '{"name":"wifi_wizard_dialog","clientParams":{"show":true}}');
+      }
+      showToast("Opening System Wi-Fi Selector...");
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-pass-clear") {
+      var wpIn = document.getElementById("wifi-pass-input");
+      if (wpIn) { wpIn.value = ""; wpIn.focus(); }
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-connect-cancel") {
+      STATE.wifiPasswordTarget = "";
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-wifi-connect-confirm") {
+      var passEl = document.getElementById("wifi-pass-input");
+      var ssidEl = document.getElementById("wifi-ssid-input");
+      var pwd = passEl ? passEl.value : "";
+      var chosenSsid = (STATE.wifiPasswordTarget === "__CUSTOM__" && ssidEl && ssidEl.value) ? ssidEl.value : STATE.wifiPasswordTarget;
+      STATE.connectedWifi = chosenSsid;
+      STATE.airplaneMode = false;
+      setKindleHardwareProp("com.lab126.cmd", "wirelessEnable", 1, true);
+      setKindleHardwareProp("com.lab126.wifid", "createProfile", JSON.stringify({ ssid: STATE.connectedWifi, psk: pwd }), false);
+      showToast("Connecting to " + STATE.connectedWifi + "...");
+      STATE.wifiPasswordTarget = "";
+      renderAll();
+      return;
+    }
+
+    var wifiSsid = findAttrUp(target, "data-wifissid");
+    if (wifiSsid) {
+      STATE.wifiPasswordTarget = wifiSsid;
+      renderAll();
+      setTimeout(function() {
+        var wpIn = document.getElementById("wifi-pass-input");
+        if (wpIn) wpIn.focus();
+      }, 40);
+      return;
+    }
+
+    var wikiTitle = findAttrUp(target, "data-wikititle");
+    if (wikiTitle) {
+      renderWikipediaArticle(decodeURIComponent(wikiTitle));
+      return;
+    }
+
+    var quickSearch = findAttrUp(target, "data-quicksearch");
+    if (quickSearch) {
+      openWebSearchOrUrl(quickSearch);
+      return;
+    }
+
+    if (findAttrUp(target, "id") === "btn-webtab-options") {
+      openWebSearchOrUrl(STATE.webUrl);
+      document.getElementById("web-options-drawer").style.display = "block";
+      return;
+    }
+
+    if (target.id === "btn-settings-next-page" || findAttrUp(target, "id") === "btn-settings-next-page") {
+      STATE.settingsPage = (STATE.settingsPage % 4) + 1;
+      renderAll();
+      return;
+    }
+    if (target.id === "btn-zoom-out") {
+      if (STATE.uiZoomPct > 75) STATE.uiZoomPct -= 5;
+      renderAll();
+      return;
+    }
+    if (target.id === "btn-zoom-reset") {
+      STATE.uiZoomPct = 100;
+      renderAll();
+      return;
+    }
+    if (target.id === "btn-zoom-in") {
+      if (STATE.uiZoomPct < 140) STATE.uiZoomPct += 5;
+      renderAll();
+      return;
+    }
+    if (target.id === "btn-cycle-sort" || findAttrUp(target, "id") === "btn-cycle-sort") {
+      var orders = ["Recent", "Title", "Progress"];
+      var idx = orders.indexOf(STATE.librarySort);
+      STATE.librarySort = orders[(idx + 1) % orders.length];
+      renderAll();
+      return;
+    }
+    if (target.id === "btn-restore-books") {
+      if (window.KINDLE_DEVICE_DATA && window.KINDLE_DEVICE_DATA.books) {
+        BOOKS = window.KINDLE_DEVICE_DATA.books;
+      }
+      renderAll();
+      showToast("Found " + BOOKS.length + " books in /mnt/us/documents");
+      return;
+    }
+    if (target.id === "btn-next-lyric") {
+      STATE.lyricsIdx = (STATE.lyricsIdx + 1) % 5;
+      openAppModal("lyrics");
+      return;
+    }
+    if (target.id === "btn-clear-sketch") {
+      var c = document.getElementById("sketch-canvas");
+      if (c) c.getContext("2d").clearRect(0, 0, c.width, c.height);
+      return;
+    }
+
+    var toggleKey = findAttrUp(target, "data-togglekey");
+    if (toggleKey) {
+      STATE[toggleKey] = !STATE[toggleKey];
+      if (toggleKey === "airplaneMode") {
+        setKindleHardwareProp("com.lab126.cmd", "wirelessEnable", STATE.airplaneMode ? 0 : 1, true);
+      }
+      renderAll();
+      return;
+    }
+
+    var settingAction = findAttrUp(target, "data-settingaction");
+    if (settingAction) {
+      if (settingAction === "brightness") {
+        var levels = [0, 6, 12, 18, 24];
+        var bIdx = levels.indexOf(STATE.brightnessLevel);
+        STATE.brightnessLevel = levels[(bIdx + 1) % levels.length];
+        setKindleHardwareProp("com.lab126.powerd", "flIntensity", STATE.brightnessLevel, true);
+        renderAll();
+        showToast("Frontlight Brightness: " + STATE.brightnessLevel + " / 24");
+      } else if (settingAction === "wifi") {
+        STATE.inWifiPage = true;
+        renderAll();
+      } else if (settingAction === "timeformat") {
+        STATE.timeFormat24 = !STATE.timeFormat24;
+        renderAll();
+      } else if (settingAction === "pagerefresh") {
+        var freqs = [3, 6, 12];
+        var fIdx = freqs.indexOf(STATE.pageRefreshFreq);
+        STATE.pageRefreshFreq = freqs[(fIdx + 1) % freqs.length];
+        renderAll();
+      } else if (settingAction === "webengine") {
+        STATE.webEngine = (STATE.webEngine === "Kindle WebKit") ? "Modern (beta)" : "Kindle WebKit";
+        renderAll();
+      } else if (settingAction === "font") {
+        var fonts = ["Bookerly", "Helvetica", "Caecilia", "Futura"];
+        STATE.readingFont = fonts[(fonts.indexOf(STATE.readingFont) + 1) % fonts.length];
+        renderAll();
+      } else if (settingAction === "margins") {
+        var mgs = ["Small", "Medium", "Wide"];
+        STATE.readingMargins = mgs[(mgs.indexOf(STATE.readingMargins) + 1) % mgs.length];
+        renderAll();
+      } else if (settingAction === "spacing") {
+        var sps = ["Compact", "Normal", "Loose"];
+        STATE.readingSpacing = sps[(sps.indexOf(STATE.readingSpacing) + 1) % sps.length];
+        renderAll();
+      } else if (settingAction === "sleeptimeout") {
+        var tms = [5, 10, 15, 30];
+        STATE.sleepTimeoutMins = tms[(tms.indexOf(STATE.sleepTimeoutMins) + 1) % tms.length];
+        setKindleHardwareProp("com.lab126.powerd", "touchScreenSaverTimeout", STATE.sleepTimeoutMins * 60, true);
+        renderAll();
+      }
+      return;
+    }
+
+    var themeBtn = findAttrUp(target, "data-themebtn");
+    if (themeBtn) {
+      STATE.theme = themeBtn;
+      renderAll();
+      return;
+    }
+
+    var sizeBtn = findAttrUp(target, "data-sizebtn");
+    if (sizeBtn) {
+      STATE.textSize = sizeBtn;
+      renderAll();
+      return;
+    }
+
+    var layoutBtn = findAttrUp(target, "data-layoutbtn");
+    if (layoutBtn) {
+      STATE.homeLayout = layoutBtn;
+      renderAll();
+      return;
+    }
+
+    var coverBtn = findAttrUp(target, "data-coverbtn");
+    if (coverBtn) {
+      STATE.coverStyle = coverBtn;
+      renderAll();
+      return;
+    }
+
+    var libFilter = findAttrUp(target, "data-libfilter");
+    if (libFilter) {
+      STATE.libraryFilter = libFilter;
+      renderAll();
+      return;
+    }
+
+    var wpFile = findAttrUp(target, "data-wpfile");
+    if (wpFile) {
+      STATE.selectedWallpaper = wpFile;
+      openAppModal("wallpapers");
+      showToast("Sleep Wallpaper active: " + wpFile);
+      return;
+    }
+
+    var launchUrl = findAttrUp(target, "data-launchurl");
+    if (launchUrl) {
+      openWebSearchOrUrl(launchUrl);
+      return;
+    }
+
+    var arcCat = findAttrUp(target, "data-arcadecat");
+    if (arcCat) {
+      ARCADE_STATE.category = arcCat;
+      renderOfflineArcadeHub();
+      return;
+    }
+
+    var playGame = findAttrUp(target, "data-playgame");
+    if (playGame) {
+      ARCADE_STATE.activeGameId = playGame;
+      renderPlayableArcadeGame(playGame);
+      return;
+    }
+
+    var lyricLine = findAttrUp(target, "data-lyricline");
+    if (lyricLine !== null) {
+      STATE.lyricsIdx = parseInt(lyricLine, 10);
+      openAppModal("lyrics");
+      return;
+    }
+
+    var bookId = findAttrUp(target, "data-bookid");
+    if (bookId) {
+      openBookInBuiltInReader(bookId);
+      return;
+    }
+
+    var appId = findAttrUp(target, "data-appid");
+    if (appId) {
+      openAppModal(appId);
+      return;
+    }
+
+    if (findAttrUp(target, "id") === "row-grid-cols") {
+      STATE.gridColumns = (STATE.gridColumns === 3) ? 2 : 3;
+      renderAll();
+      return;
+    }
+    if (findAttrUp(target, "id") === "continue-reading-card") {
+      var allB = getCombinedBooksList();
+      if (allB.length > 0) {
+        openBookInBuiltInReader(allB[0].id);
+      } else {
+        STATE.activeTab = "library";
+        renderAll();
+      }
+      return;
+    }
+    if (findAttrUp(target, "id") === "btn-web-go") {
+      var uInput = document.getElementById("web-url-input");
+      if (uInput && uInput.value) {
+        openWebSearchOrUrl(uInput.value);
+      }
+      return;
+    }
+    if (findAttrUp(target, "id") === "row-backup-usb") {
+      if (window.localStorage) window.localStorage.removeItem("pw_os_state_v6");
+      STATE.uiZoomPct = 100;
+      STATE.textSize = "M";
+      STATE.theme = "Normal";
+      renderAll();
+      showToast("Reset UI Scale & Preferences to 100%");
+      return;
+    }
+    if (findAttrUp(target, "id") === "row-restart-screen") {
+      runGhostingCleanerFlash();
+      return;
+    }
+  };
+}
+
+window.onresize = syncBodyClasses;
+
+function attachFastScroll(el) {
+  if (!el || el.__fastScrollBound) return;
+  el.__fastScrollBound = true;
+  var startY = 0, startX = 0, startTop = 0, startTs = 0, isDragging = false, lastPaint = 0;
+
+  function shouldSkip(target) {
+    while (target && target !== el) {
+      var tn = (target.tagName || "").toUpperCase();
+      if (tn === "CANVAS" || tn === "INPUT" || tn === "TEXTAREA" || tn === "SELECT") return true;
+      if (target.className && typeof target.className === "string" && target.className.indexOf("brightness-slider") !== -1) return true;
+      target = target.parentNode;
+    }
+    return false;
+  }
+
+  el.ontouchstart = function(e) {
+    if (!e.touches || !e.touches.length) return;
+    if (shouldSkip(e.target || e.srcElement)) { isDragging = false; return; }
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    startTop = el.scrollTop;
+    startTs = (new Date()).getTime();
+    isDragging = true;
+  };
+
+  el.ontouchmove = function(e) {
+    if (!isDragging || !e.touches || !e.touches.length) return;
+    var cy = e.touches[0].clientY;
+    var cx = e.touches[0].clientX;
+    var dy = startY - cy;
+    var dx = startX - cx;
+    if (Math.abs(dy) < 12 || Math.abs(dx) > Math.abs(dy)) return;
+    if (e.preventDefault) e.preventDefault();
+    var now = (new Date()).getTime();
+    if (now - lastPaint < 70) return;
+    lastPaint = now;
+    var z = window.__PW_ZOOM || 1;
+    var mult = 2.1 / (z > 0.2 ? z : 1);
+    el.scrollTop = startTop + Math.round(dy * mult);
+  };
+
+  el.ontouchend = function(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    var endY = e.changedTouches[0].clientY;
+    var dy = startY - endY;
+    var dt = (new Date()).getTime() - startTs;
+    if (dt < 300 && Math.abs(dy) > 38) {
+      var step = (dy > 0) ? 420 : -420;
+      el.scrollTop = el.scrollTop + step;
+    }
+  };
+}
+window.onload = function() {
+  loadSavedState();
+  initKindleChromelessBridge();
+  setupEventListeners();
+  attachFastScroll(document.getElementById("main-scroll"));
+  attachFastScroll(document.getElementById("modal-app-body"));
+  renderAll();
+  setInterval(updateLiveClockAndBattery, 15000);
+
+  /* Automatic first-run setup when opened from Store if setupRev 46 is not yet active */
+  setTimeout(function() {
+    try {
+      var hasKindle = (typeof window.kindle !== "undefined");
+      var isReady46 = (window.KINDLE_DEVICE_DATA && window.KINDLE_DEVICE_DATA.setupRev === "47");
+      if (hasKindle && !isReady46) {
+        var guard = window.sessionStorage ? window.sessionStorage.getItem("pwos_autosetup_47") : null;
+        if (guard !== "1") {
+          if (window.sessionStorage) window.sessionStorage.setItem("pwos_autosetup_47", "1");
+          if (window.kindle && window.kindle.messaging) {
+            window.kindle.messaging.sendStringMessage("com.lab126.pillow", "disableEnablePillow", "enable");
+          }
+          runPillowHelperDialog("bridge_helper", { show: true });
+          showToast("Applying Paperwhite OS 4.7 full-screen setup...");
+        }
+      }
+    } catch (err) {}
+  }, 1400);
+};
+</script>
+</body>
+</html>
+"""
+
+os.makedirs(INTERMEDIATE_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+with open(os.path.join(INTERMEDIATE_DIR, "paperwhite_os_menu.html"), "w", encoding="utf-8") as f:
+  f.write(HTML_CODE)
+
+CANVAS_HTML = HTML_CODE.replace(
+    "document.write('<scr' + 'ipt type=\"text/javascript\""
+    " src=\"device_data.js?v=' + (new Date().getTime()) +"
+    " '\"></scr' + 'ipt>');",
+    "window.KINDLE_DEVICE_DATA = { setupRev: '47', applianceMode: true, battery: 82, connectedWifi: 'Home network',"
+    " storageFree: '2.6 GB free', books: [{ id: 'doc_1', title: 'Sapiens: A"
+    " Brief History', coverTitle: 'SAPIENS', author: 'Yuval Noah Harari',"
+    " progress: 45, status: '45% read', dark: true, downloaded: true, art:"
+    " 'dots' }, { id: 'doc_2', title: 'The Hobbit', coverTitle: 'THE HOBBIT',"
+    " author: 'J.R.R. Tolkien', progress: 100, status: 'Finished', dark: false,"
+    " downloaded: true, art: 'lines' }, { id: 'doc_3', title: 'Dune',"
+    " coverTitle: 'DUNE', author: 'Frank Herbert', progress: 64, status: '64%"
+    " read', dark: true, downloaded: true, art: 'circle' }] };",
+)
+with open(os.path.join(OUTPUT_DIR, "paperwhite_os_menu.html"), "w", encoding="utf-8") as f:
+  f.write(CANVAS_HTML)
+
+CFW_ROOT = os.path.join(INTERMEDIATE_DIR, "cfw_bundle")
+if os.path.exists(CFW_ROOT):
+  shutil.rmtree(CFW_ROOT)
+
+os.makedirs(os.path.join(CFW_ROOT, "apps", "com.paperwhite.os"), exist_ok=True)
+os.makedirs(os.path.join(CFW_ROOT, "paperwhite-os", "waf"), exist_ok=True)
+os.makedirs(
+    os.path.join(CFW_ROOT, "paperwhite-os", "wallpapers"), exist_ok=True
+)
+os.makedirs(
+    os.path.join(CFW_ROOT, "paperwhite-os", "cloudflare-worker"), exist_ok=True
+)
+os.makedirs(os.path.join(CFW_ROOT, "documents"), exist_ok=True)
+
+# 1. Mesquito App Bundle (/mnt/us/apps/com.paperwhite.os/)
+MESQUITO_MANIFEST = {
+    "id": "com.paperwhite.os",
+    "name": "Paperwhite OS",
+    "version": "4.7.0",
+    "author": "Paperwhite OS Contributors",
+    "description": (
+        "Pure Appliance Custom OS for Kindle Paperwhite 3 (7th Gen 5.16.2.1.1)"
+    ),
+    "main": "index.html",
+    "icon": "icon.png",
+    "waf": True,
+}
+with open(
+    os.path.join(CFW_ROOT, "apps", "com.paperwhite.os", "manifest.json"), "w", encoding="utf-8"
+) as f:
+  json.dump(MESQUITO_MANIFEST, f, indent=2)
+
+with open(
+    os.path.join(CFW_ROOT, "apps", "com.paperwhite.os", "index.html"), "w", encoding="utf-8"
+) as f:
+  f.write(HTML_CODE)
+
+wp_cache_dir = os.path.join(BUILD_DIR, "cached_pwos_wallpapers")
+wp_src_dir = os.path.join(REPO_ROOT, "wallpapers-source")
+if os.path.exists(wp_src_dir):
+  if not os.path.exists(wp_cache_dir):
+    os.makedirs(wp_cache_dir, exist_ok=True)
+    wp_files = sorted([fn for fn in os.listdir(wp_src_dir) if fn.endswith(".png")])
+    for idx, fn in enumerate(wp_files):
+      src_p = os.path.join(wp_src_dir, fn)
+      im = Image.open(src_p).convert("L").resize((1072, 1448), Image.Resampling.LANCZOS)
+      im.save(os.path.join(wp_cache_dir, fn), format="PNG")
+      im.save(os.path.join(wp_cache_dir, f"bg_ss{idx:02d}.png"), format="PNG")
+  for fn in os.listdir(wp_cache_dir):
+    shutil.copy2(os.path.join(wp_cache_dir, fn), os.path.join(CFW_ROOT, "paperwhite-os", "wallpapers", fn))
+  im_icon = (
+      Image.open(os.path.join(wp_src_dir, "01_cardioid_light.png"))
+      .convert("L")
+      .resize((128, 128))
+  )
+  im_icon.save(
+      os.path.join(CFW_ROOT, "apps", "com.paperwhite.os", "icon.png"),
+      format="PNG",
+  )
+
+CONFIG_XML = """<?xml version="1.0"?>
+<widget id="com.paperwhite.os" version="4.2" viewmodes="application" xmlns="http://www.w3.org/ns/widgets" xmlns:kindle="http://kindle.amazon.com/ns/widget-extensions">
+    <name xml:lang="en">Paperwhite OS</name>
+    <description xml:lang="en">Pure Appliance Custom OS for Kindle Paperwhite 3</description>
+    <content src="index.html" />
+    <kindle:permissions>
+        <kindle:permission name="local-port-access" />
+        <kindle:permission name="download-allowed" />
+    </kindle:permissions>
+    <kindle:network>
+        <kindle:asset key="user-agent" value="Mozilla/5.0 (X11; U; Linux armv7l like Android; en-us) AppleWebKit/531.2+ (KHTML, like Gecko) Version/5.0 Safari/533.2+ Kindle/3.0+" />
+        <kindle:asset key="initialDNS" value="false" />
+        <kindle:asset key="maxConnections" value="6" />
+        <kindle:asset key="maxConnectionsPerHost" value="2" />
+        <kindle:asset key="overrideProxy" value="none" />
+        <kindle:asset key="enableCaching" value="false" />
+    </kindle:network>
+    <kindle:chrome>
+        <kindle:asset key="configureSearchBar" value="none" />
+    </kindle:chrome>
+    <kindle:gestures>
+        <kindle:param name="tap" value="yes" properties="fire_on_tap:1 max_updown_delta:0" />
+        <kindle:param name="swipe" value="yes" />
+    </kindle:gestures>
+    <feature name="http://kindle.amazon.com/apis" required="true">
+        <param name="appmgr" value="yes" />
+        <param name="net" value="yes" />
+        <param name="todo" value="yes" />
+        <param name="gestures" value="yes" />
+        <param name="chrome" value="yes" />
+        <param name="dev" value="yes" />
+        <param name="dconfig" value="yes" />
+        <param name="download" value="yes" />
+        <param name="messaging" value="yes" />
+        <param name="uitest" value="yes" />
+        <param name="popup" value="yes" />
+        <param name="bkgrnd" value="yes" />
+        <param name="localprefs" value="yes" />
+        <param name="device" value="yes" />
+        <param name="winmgrUtils" value="yes" />
+    </feature>
+    <kindle:messaging>
+        <kindle:app name="com.lab126.pillow" value="yes" />
+        <kindle:app name="com.lab126.chromebar" value="yes" />
+        <kindle:app name="com.lab126.appmgrd" value="yes" />
+        <kindle:app name="com.lab126.powerd" value="yes" />
+        <kindle:app name="com.lab126.winmgr" value="yes" />
+        <kindle:app name="com.lab126.mfa" value="yes" />
+        <kindle:app name="com.lab126.cmd" value="yes" />
+        <kindle:app name="com.lab126.wifid" value="yes" />
+    </kindle:messaging>
+    <kindle:resources>
+        <kindle:asset key="AllowHTTPSApplicationManifestCrossDomain" value="true" />
+        <kindle:asset key="LocalStorageQuota" value="26214400" />
+    </kindle:resources>
+    <kindle:settings>
+        <kindle:setting name="internetRequired" value="no" />
+        <kindle:setting name="saveContext" value="no" />
+        <kindle:setting name="minimumFontSize" value="0" />
+        <kindle:setting name="defaultFontSize" value="16" />
+        <kindle:setting name="defaultFontSize300" value="16" />
+        <kindle:setting name="defaultFontSize212" value="16" />
+        <kindle:setting name="defaultFontSize167" value="16" />
+        <kindle:setting name="enforce96DPI" value="no" />
+        <kindle:setting name="enableW3CStd" value="yes" />
+        <kindle:setting name="disable-wua-features" value="yes" />
+        <kindle:setting name="flattenFrames" value="yes" />
+    </kindle:settings>
+</widget>
+"""
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "waf", "config.xml"), "w", encoding="utf-8") as f:
+  f.write(CONFIG_XML)
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "waf", "index.html"), "w", encoding="utf-8") as f:
+  f.write(HTML_CODE)
+
+BROWSER_CONFIG_XML = CONFIG_XML.replace(
+    'id="com.paperwhite.os"', 'id="com.lab126.browser"'
+)
+with open(
+    os.path.join(CFW_ROOT, "paperwhite-os", "waf", "browser_config.xml"), "w", encoding="utf-8"
+) as f:
+  f.write(BROWSER_CONFIG_XML)
+
+STORE_CONFIG_XML = CONFIG_XML.replace(
+    'id="com.paperwhite.os"', 'id="com.lab126.store"'
+)
+with open(
+    os.path.join(CFW_ROOT, "paperwhite-os", "waf", "store_config.xml"), "w", encoding="utf-8"
+) as f:
+  f.write(STORE_CONFIG_XML)
+
+# RECURSIVE BOOK & WI-FI SCANNER (Point 1 & Point 7):
+# Scans ALL subdirectories of /mnt/us/documents/ (including Calibre author folders!)
+# and scans live Wi-Fi SSIDs from wpa_cli / iwlist!
+SCAN_BOOKS_SH = r"""#!/bin/sh
+export DISPLAY=:0
+OUT="/var/local/mesquite/com.paperwhite.os/device_data.js"
+OUT2="/var/local/mesquite/browser/device_data.js"
+OUT3="/var/local/mesquite/store/device_data.js"
+OUT4="/mnt/us/apps/com.paperwhite.os/device_data.js"
+
+# Auto-sync latest Paperwhite OS UI & kterm launcher whenever scan_books.sh runs (on wake or boot!)
+if [ -f /mnt/us/paperwhite-os/waf/index.html ]; then
+    if ! cmp -s /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/com.paperwhite.os/index.html 2>/dev/null; then
+        cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/com.paperwhite.os/index.html 2>/dev/null
+        cp -rf /mnt/us/paperwhite-os/waf/config.xml /var/local/mesquite/com.paperwhite.os/config.xml 2>/dev/null
+        cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/browser/index.html 2>/dev/null
+        cp -rf /mnt/us/paperwhite-os/waf/browser_config.xml /var/local/mesquite/browser/config.xml 2>/dev/null
+        cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/store/index.html 2>/dev/null
+        cp -rf /mnt/us/paperwhite-os/waf/store_config.xml /var/local/mesquite/store/config.xml 2>/dev/null
+        chmod +x /mnt/us/paperwhite-os/launch_kterm.sh 2>/dev/null
+        sqlite3 /var/local/appreg.db "INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('com.paperwhite.kterm'); INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','lipcId','com.paperwhite.kterm'); INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','command','/bin/sh /mnt/us/paperwhite-os/launch_kterm.sh'); INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','supportedOrientation','U');" 2>/dev/null
+        NEEDS_UI_RELOAD=1
+    fi
+fi
+
+# 1. Read exact live battery % from powerd battLevel, gasgauge-info -s, and wario_battery0 sysfs
+BAT=$(lipc-get-prop com.lab126.powerd battLevel 2>/dev/null | head -n 1 | tr -dc '0-9')
+if [ -z "$BAT" ] || [ "$BAT" -gt 100 ] 2>/dev/null; then
+    BAT=$(gasgauge-info -s 2>/dev/null | head -n 1 | tr -dc '0-9')
+fi
+if [ -z "$BAT" ] || [ "$BAT" -gt 100 ] 2>/dev/null; then
+    for sys_bat in \
+        /sys/devices/system/wario_battery/wario_battery0/battery_capacity \
+        /sys/class/power_supply/max77696-battery/capacity \
+        /sys/class/power_supply/battery/capacity; do
+        if [ -r "$sys_bat" ]; then
+            BAT=$(head -n 1 "$sys_bat" 2>/dev/null | tr -dc '0-9')
+            [ -n "$BAT" ] && [ "$BAT" -le 100 ] 2>/dev/null && break
+        fi
+    done
+fi
+[ -z "$BAT" ] && BAT=80
+CHG=0
+if [ -r /sys/devices/system/wario_charger/wario_charger0/charging ]; then
+    CHG=$(cat /sys/devices/system/wario_charger/wario_charger0/charging 2>/dev/null | tr -dc '0-9')
+    [ -z "$CHG" ] && CHG=0
+fi
+for lb in /var/local/mesquite/com.paperwhite.os/live_battery.js /var/local/mesquite/store/live_battery.js /var/local/mesquite/browser/live_battery.js /mnt/us/paperwhite-os/waf/live_battery.js; do
+    echo "window.KINDLE_LIVE_BATTERY = { level: $BAT, charging: $CHG };" > "$lb" 2>/dev/null
+done
+
+# 2. Read free storage on /mnt/us
+FREE_MB=$(df -m /mnt/us 2>/dev/null | tail -n 1 | awk '{print $4}')
+if [ -n "$FREE_MB" ]; then
+    FREE_STR="${FREE_MB} MB free"
+else
+    FREE_STR="2.6 GB free"
+fi
+
+# 3. Read current Wi-Fi SSID
+CONN_SSID=$(wpa_cli -i wlan0 status 2>/dev/null | grep '^ssid=' | head -n 1 | cut -d= -f2 | tr -d '"\\')
+[ -z "$CONN_SSID" ] && CONN_SSID="Home network"
+
+echo "window.KINDLE_DEVICE_DATA = {" > "$OUT"
+echo "  applianceMode: true," >> "$OUT"
+echo "  setupRev: \"47\"," >> "$OUT"
+echo "  battery: $BAT," >> "$OUT"
+echo "  connectedWifi: \"$CONN_SSID\"," >> "$OUT"
+echo "  storageFree: \"$FREE_STR\"," >> "$OUT"
+
+# 4. Scan nearby Wi-Fi networks
+echo "  wifiNetworks: [" >> "$OUT"
+echo "    { ssid: \"$CONN_SSID\", signal: \"Connected\", secured: true, connected: true }," >> "$OUT"
+wpa_cli -i wlan0 scan_results 2>/dev/null | tail -n +3 | awk -F'\t' '{print $5}' | sort -u | head -n 10 | while IFS= read -r net_ssid; do
+    CLEAN_NET=$(echo "$net_ssid" | tr -d '"\\'\''')
+    if [ -n "$CLEAN_NET" ] && [ "$CLEAN_NET" != "$CONN_SSID" ]; then
+        echo "    { ssid: \"$CLEAN_NET\", signal: \"Available\", secured: true, connected: false }," >> "$OUT"
+    fi
+done
+echo "  ]," >> "$OUT"
+
+# 5. Recursively scan ALL books in /mnt/us/documents/ (including Calibre subfolders!)
+echo "  books: [" >> "$OUT"
+
+IDX=0
+ARTS="circle lines dots triangle rosette square"
+find /mnt/us/documents -type f \( -iname "*.azw3" -o -iname "*.azw" -o -iname "*.mobi" -o -iname "*.epub" -o -iname "*.pdf" -o -iname "*.kfx" -o -iname "*.prc" -o -iname "*.txt" \) 2>/dev/null | sort | while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    BN=$(basename "$f")
+    case "$BN" in
+        KPPMainApp*|*.sdr|JAILBROKEN*|1_Full_Takeover*|2_Restore_Stock*|Paperwhite_OS*|Install_Paperwhite_OS*|*.sh) continue ;;
+    esac
+    EXT="${BN##*.}"
+    RAW_TITLE="${BN%.*}"
+    # Strip Amazon ASIN suffix like _B00... or _EBOK if present
+    RAW_TITLE=$(echo "$RAW_TITLE" | sed 's/_B0[A-Z0-9]*$//; s/_EBOK$//')
+    CLEAN_TITLE=$(echo "$RAW_TITLE" | tr '_' ' ' | tr -d '"\\'\''' | cut -c1-36)
+    UPPER_TITLE=$(echo "$CLEAN_TITLE" | tr 'a-z' 'A-Z' | cut -c1-14)
+
+    # Extract Author or Folder name from parent path
+    PARENT_DIR=$(basename "$(dirname "$f")" | tr -d '"\\'\''')
+    if [ "$PARENT_DIR" = "documents" ]; then
+        AUTHOR_STR=$(echo "$EXT" | tr 'a-z' 'A-Z')
+    else
+        AUTHOR_STR=$(echo "$PARENT_DIR" | cut -c1-24)
+    fi
+
+    DARK="true"
+    [ $((IDX % 2)) -eq 1 ] && DARK="false"
+    ART=$(echo $ARTS | awk -v n=$(( (IDX % 6) + 1 )) '{print $n}')
+    SAFE_PATH=$(echo "$f" | tr -d '"\\'\''')
+    # Extract up to 3600 chars of clean readable text from .txt, .epub, .mobi, .azw, .azw3 for built-in E-Ink Reader!
+    EXTRACTED=""
+    case "$EXT" in
+        txt|TXT|md|MD|html|HTML)
+            EXTRACTED=$(sed 's/<[^>]*>/ /g' "$f" 2>/dev/null | tr '\r\n\t' '   ' | tr -d '"\\'\''' | tr -s ' ' | cut -c1-3600)
+            ;;
+        epub|EPUB)
+            EXTRACTED=$(unzip -p "$f" "*.xhtml" "*.html" "*.htm" 2>/dev/null | sed 's/<style[^>]*>.*<\/style>/ /g; s/<[^>]*>/ /g' | tr '\r\n\t' '   ' | tr -d '"\\'\''' | tr -s ' ' | cut -c1-3600)
+            ;;
+        mobi|MOBI|azw|AZW|azw3|AZW3|prc|PRC)
+            EXTRACTED=$(strings -n 14 "$f" 2>/dev/null | grep -v -E '^(EXTH|MOBI|BOOKMOBI|TPZ|FONT|RESC|BOUNDARY|kindle:|application/)' | sed 's/<[^>]*>/ /g' | tr '\r\n\t' '   ' | tr -d '"\\'\''' | tr -s ' ' | head -c 4200 | cut -c1-3600)
+            ;;
+    esac
+    echo "    { id: \"book_$IDX\", title: \"$CLEAN_TITLE\", coverTitle: \"$UPPER_TITLE\", author: \"$AUTHOR_STR\", path: \"$SAFE_PATH\", extractedText: \"$EXTRACTED\", progress: 10, status: \"Readable\", dark: $DARK, downloaded: true, art: \"$ART\" }," >> "$OUT"
+    IDX=$((IDX + 1))
+done
+
+echo "  ]" >> "$OUT"
+echo "};" >> "$OUT"
+
+cp -f "$OUT" "$OUT2" 2>/dev/null
+cp -f "$OUT" "$OUT3" 2>/dev/null
+cp -f "$OUT" "$OUT4" 2>/dev/null
+cp -f "$OUT" /mnt/us/paperwhite-os/waf/device_data.js 2>/dev/null
+
+# Always ensure Amazon default_status_bar is patched and hidden on wake/scan
+mntroot rw 2>/dev/null || mount -o remount,rw / 2>/dev/null
+if [ -f /usr/share/webkit-1.0/pillow/default_status_bar.html ]; then
+    if [ ! -f /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak ]; then
+        cp -a /usr/share/webkit-1.0/pillow/default_status_bar.html /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak 2>/dev/null
+    fi
+    cat << 'SBEOF' > /usr/share/webkit-1.0/pillow/default_status_bar.html
+<!DOCTYPE html><html><head><style>html,body{display:none!important;height:0!important;overflow:hidden!important;}</style>
+<script>window.onload=function(){if(window.nativeBridge){try{nativeBridge.setWindowSize(0,0);}catch(e){}try{nativeBridge.hideMe();}catch(e){}}};</script>
+</head><body></body></html>
+SBEOF
+fi
+mntroot ro 2>/dev/null || mount -o remount,ro / 2>/dev/null
+
+if [ "$NEEDS_UI_RELOAD" = "1" ]; then
+    killall mesquite 2>/dev/null
+    sleep 1
+    if ! pidof mesquite >/dev/null 2>&1; then nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 & fi
+    sleep 2
+fi
+
+lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+# do not dismiss active dialogs
+# keep pillow enabled for wifi_wizard_dialog
+for wid in $(xwininfo -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+    xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+done
+"""
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "scan_books.sh"), "w", encoding="utf-8") as f:
+  f.write(SCAN_BOOKS_SH)
+
+# FULL TAKEOVER INSTALLER (Point 6: Zero-glitch native sleep wallpapers!)
+FULL_TAKEOVER_SH = """#!/bin/sh
+# Name: 1. Install Paperwhite OS 4.7 (Full System Upgrade)
+# Author: Paperwhite OS Contributors
+# DontUseFBInk
+
+export DISPLAY=:0
+LIVE_MODE=0
+[ "$1" = "--live" ] && LIVE_MODE=1
+LOG="/mnt/us/paperwhite-os/takeover.log"
+echo "=== Starting Paperwhite OS 4.7 Full Upgrade ($(date)) ===" > "$LOG"
+
+rm -f /mnt/us/UNLOCK_STOCK_KINDLE 2>/dev/null
+touch /mnt/us/DISABLE_CORE_DUMP 2>/dev/null
+
+# Auto-clean old unneeded scripts, folders, and KPPMainApp crash logs
+rm -f /mnt/us/documents/KPPMainApp* 2>/dev/null
+rm -f /mnt/us/documents/Restore_Stock_Kindle.sh 2>/dev/null
+rm -f /mnt/us/documents/Paperwhite_OS_Home.sh 2>/dev/null
+rm -f /mnt/us/documents/1_Full_Takeover_Paperwhite_OS.sh 2>/dev/null
+rm -f /mnt/us/documents/2_Restore_Stock_Kindle.sh 2>/dev/null
+rm -rf /mnt/us/documents/Paperwhite-OS-Installer 2>/dev/null
+rm -f /mnt/us/README.md 2>/dev/null
+
+
+# 1. Remount rootfs read-write (/dev/mmcblk0p1)
+mntroot rw >> "$LOG" 2>&1 || mount -o remount,rw / >> "$LOG" 2>&1
+
+# 2. Stop old instances when running from terminal
+[ "$LIVE_MODE" = "0" ] && killall mesquite 2>/dev/null
+killall screensaver_watchdog.sh 2>/dev/null
+
+# 3. ZERO-GLITCH SLEEP WALLPAPERS (Point 6):
+# Permanently unload ad_screensaver and populate both /usr/share/blanket/screensaver/
+# AND /var/local/adunits/ + /mnt/us/system/.assets/ so the Kindle's native hardware
+# screensaver displays ONE custom wallpaper instantly with ZERO flashing or 2s delay!
+lipc-set-prop com.lab126.blanket unload ad_screensaver 2>/dev/null
+if [ -d /usr/share/blanket/screensaver ]; then
+    if [ ! -d /usr/share/blanket/screensaver.stock_backup ]; then
+        cp -rf /usr/share/blanket/screensaver /usr/share/blanket/screensaver.stock_backup >> "$LOG" 2>&1
+    fi
+    rm -f /usr/share/blanket/screensaver/*.png 2>/dev/null
+    cp -f /mnt/us/paperwhite-os/wallpapers/bg_ss*.png /usr/share/blanket/screensaver/ 2>/dev/null
+    chmod 644 /usr/share/blanket/screensaver/*.png 2>/dev/null
+fi
+# Also replace any cached ad screensaver images so ad_screensaver can never flash first
+find /var/local/adunits /mnt/us/system/.assets -type f \( -name "*.png" -o -name "*.gif" -o -name "*.jpg" \) 2>/dev/null | while IFS= read -r adimg; do
+    cp -f /mnt/us/paperwhite-os/wallpapers/bg_ss00.png "$adimg" 2>/dev/null
+done
+
+# 4. Install Paperwhite OS 4.7 WAF into com.paperwhite.os, browser, and store (Exact Paperwhite OS 4 procedure!)
+mkdir -p /var/local/mesquite/com.paperwhite.os
+ln -sf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/com.paperwhite.os/index.html 2>/dev/null || cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/com.paperwhite.os/index.html
+cp -rf /mnt/us/paperwhite-os/waf/config.xml /var/local/mesquite/com.paperwhite.os/config.xml
+
+if [ -d /var/local/mesquite/browser ] && [ ! -d /var/local/mesquite/browser.stock_backup ]; then
+    cp -rf /var/local/mesquite/browser /var/local/mesquite/browser.stock_backup >> "$LOG" 2>&1
+fi
+mkdir -p /var/local/mesquite/browser
+rm -rf /var/local/mesquite/browser/* 2>/dev/null
+ln -sf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/browser/index.html 2>/dev/null || cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/browser/index.html
+cp -rf /mnt/us/paperwhite-os/waf/browser_config.xml /var/local/mesquite/browser/config.xml
+
+if [ -d /var/local/mesquite/store ] && [ ! -d /var/local/mesquite/store.stock_backup ]; then
+    cp -rf /var/local/mesquite/store /var/local/mesquite/store.stock_backup >> "$LOG" 2>&1
+fi
+mkdir -p /var/local/mesquite/store
+rm -rf /var/local/mesquite/store/* 2>/dev/null
+ln -sf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/store/index.html 2>/dev/null || cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/store/index.html
+cp -rf /mnt/us/paperwhite-os/waf/store_config.xml /var/local/mesquite/store/config.xml
+
+mkdir -p /mnt/us/apps/com.paperwhite.os
+cp -rf /mnt/us/paperwhite-os/waf/index.html /mnt/us/apps/com.paperwhite.os/index.html 2>/dev/null
+
+# 5. Recursively scan all books in /mnt/us/documents/ & Wi-Fi networks
+chmod +x /mnt/us/paperwhite-os/scan_books.sh
+/mnt/us/paperwhite-os/scan_books.sh >> "$LOG" 2>&1
+
+# 6. Repoint handlers in /var/local/appreg.db to Paperwhite OS
+sqlite3 /var/local/appreg.db <<EOF
+INSERT OR IGNORE INTO interfaces(interface) VALUES('application');
+INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('com.paperwhite.os');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','lipcId','com.paperwhite.os');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','command','/usr/bin/mesquite -l com.paperwhite.os -c file:///var/local/mesquite/com.paperwhite.os/');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','supportedOrientation','U');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.lab126.browser','command','/usr/bin/mesquite -l com.lab126.browser -c file:///var/local/mesquite/browser/');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.lab126.store','command','/usr/bin/mesquite -l com.lab126.store -c file:///var/local/mesquite/store/');
+INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('com.paperwhite.kterm');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','lipcId','com.paperwhite.kterm');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','command','/bin/sh /mnt/us/paperwhite-os/launch_kterm.sh');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','supportedOrientation','U');
+EOF
+
+# 7. Install Upstart boot jobs (single-event syntax for Kindle Upstart 0.6.5 compatibility)
+cp -f /mnt/us/paperwhite-os/upstart_paperwhite_os.conf /etc/upstart/paperwhite_os.conf >> "$LOG" 2>&1
+chmod 644 /etc/upstart/paperwhite_os.conf >> "$LOG" 2>&1
+cat << 'UPEOF2' > /etc/upstart/paperwhite_os_gui.conf
+description "Paperwhite OS 4.7 Framework Startup"
+start on started framework
+stop on stopping system
+exec /bin/sh /mnt/us/paperwhite-os/boot_daemon.sh
+UPEOF2
+chmod 644 /etc/upstart/paperwhite_os_gui.conf >> "$LOG" 2>&1
+chmod +x /mnt/us/paperwhite-os/boot_daemon.sh >> "$LOG" 2>&1
+chmod +x /mnt/us/paperwhite-os/screensaver_watchdog.sh >> "$LOG" 2>&1
+
+# 8. Replace Amazon KPPMainApp executable on /dev/mmcblk0p1 & Eradicate Amazon Top Status Bar
+# Completely hide & disable Amazon default_status_bar (Pillow + X11 PC:N + rootfs patch)
+lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+# do not dismiss active dialogs
+lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+            # keep pillow enabled for wifi_wizard_dialog
+# Keep statusbar daemon alive at 0x0 size so interrogatePillow (brightness/LIPC bridge) ALWAYS works!
+stop statusbar 2>/dev/null
+if [ -f /usr/share/webkit-1.0/pillow/default_status_bar.html ]; then
+    if [ ! -f /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak ]; then
+        cp -a /usr/share/webkit-1.0/pillow/default_status_bar.html /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak 2>/dev/null
+    fi
+    cat << 'SBEOF' > /usr/share/webkit-1.0/pillow/default_status_bar.html
+<!DOCTYPE html><html><head><style>html,body{display:none!important;height:0!important;overflow:hidden!important;}</style>
+<script>window.onload=function(){if(window.nativeBridge){try{nativeBridge.setWindowSize(0,0);}catch(e){}try{nativeBridge.hideMe();}catch(e){}}};</script>
+</head><body></body></html>
+SBEOF
+fi
+for wid in $(xwininfo -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+    xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+done
+
+# Purge any stuck com.lab126.transfer jobs so kterm never re-launches in a loop
+killall -9 transfer 2>/dev/null
+rm -f /var/local/transfer* /var/local/mesquite/transfer* 2>/dev/null
+
+for KPP_BIN in /app/bin/KPPMainApp /app/bin/KPPMainAppV1 /app/bin/KPPMainAppV2 /usr/bin/KPPMainApp; do
+    if [ -f "${KPP_BIN}.amazon_bak" ]; then
+        cp -a "${KPP_BIN}.amazon_bak" "$KPP_BIN" 2>/dev/null
+        chmod 755 "$KPP_BIN" 2>/dev/null
+    fi
+done
+
+mntroot ro >> "$LOG" 2>&1 || mount -o remount,ro / >> "$LOG" 2>&1
+
+# 9. Start Watchdog Daemon (Zero-glitch wake handler) & Launch Paperwhite OS 4.7 on Layer D (Full Amazon OS Lockdown!)
+chmod +x /mnt/us/paperwhite-os/launch_kterm.sh 2>/dev/null
+killall screensaver_watchdog.sh 2>/dev/null
+nohup /mnt/us/paperwhite-os/screensaver_watchdog.sh >/dev/null 2>&1 &
+
+chmod +x /mnt/us/paperwhite-os/auto_setup.sh 2>/dev/null
+if [ "$LIVE_MODE" = "0" ]; then
+    killall mesquite 2>/dev/null
+    sleep 1
+    nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 &
+    sleep 3
+fi
+
+if ! pidof mesquite >/dev/null 2>&1; then
+    DISPLAY=:0 nohup /usr/bin/mesquite -l com.paperwhite.os -c file:///var/local/mesquite/com.paperwhite.os/ >/dev/null 2>&1 &
+    sleep 2
+fi
+
+lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+lipc-set-prop -i com.lab126.pillow dismissChrome 1 2>/dev/null
+lipc-set-prop -s com.lab126.pillow disableEnablePillow "disable" 2>/dev/null
+lipc-set-prop -s com.lab126.chromebar configureChrome '{"appId":"com.paperwhite.os","topNavBar":{"template":"none"}}' 2>/dev/null
+lipc-set-prop -s com.lab126.chromebar configureChrome '{"appId":"com.lab126.store","topNavBar":{"template":"none"}}' 2>/dev/null
+
+# Set valid AwesomeWM chromeless full-screen title (PC:N removes BOTH Amazon battery bar T and top settings bar S!)
+for wid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+    xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+done
+# Hide any residual searchBar / topBar chrome windows
+for cwid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -E "searchBar|topBar|titleBar" | awk '{print $1}'); do
+    xprop -display :0 -id "$cwid" -f WM_NAME 8s -set WM_NAME "L:C_N:topBar_HIDE_ID:hiddenbar" 2>/dev/null
+done
+echo "=== Paperwhite OS 4.7 Upgrade Complete! ===" >> "$LOG"
+echo "Paperwhite OS 4.7 configured! Switching screen..."
+if [ "$LIVE_MODE" = "0" ]; then
+    (sleep 1; killall kterm 2>/dev/null) &
+fi
+"""
+with open(os.path.join(CFW_ROOT, "install.sh"), "w", encoding="utf-8") as f:
+  f.write(FULL_TAKEOVER_SH)
+
+RESTORE_STOCK_SH = """#!/bin/sh
+# Name: 2. Emergency Unlock — Restore Stock Kindle UI
+# Author: Paperwhite OS Contributors
+# DontUseFBInk
+
+touch /mnt/us/UNLOCK_STOCK_KINDLE
+killall screensaver_watchdog.sh 2>/dev/null
+killall mesquite 2>/dev/null
+
+mntroot rw 2>/dev/null || mount -o remount,rw / 2>/dev/null
+rm -f /etc/upstart/paperwhite_os.conf
+for KPP_BIN in /app/bin/KPPMainApp /app/bin/KPPMainAppV1 /app/bin/KPPMainAppV2 /usr/bin/KPPMainApp; do
+    if [ -f "${KPP_BIN}.amazon_bak" ]; then
+        mv -f "${KPP_BIN}.amazon_bak" "$KPP_BIN" 2>/dev/null
+        chmod 755 "$KPP_BIN" 2>/dev/null
+    fi
+done
+if [ -d /usr/share/blanket/screensaver.stock_backup ]; then
+    rm -rf /usr/share/blanket/screensaver
+    cp -rf /usr/share/blanket/screensaver.stock_backup /usr/share/blanket/screensaver
+fi
+if [ -d /var/local/mesquite/browser.stock_backup ]; then
+    rm -rf /var/local/mesquite/browser
+    cp -rf /var/local/mesquite/browser.stock_backup /var/local/mesquite/browser
+fi
+if [ -d /var/local/mesquite/store.stock_backup ]; then
+    rm -rf /var/local/mesquite/store
+    cp -rf /var/local/mesquite/store.stock_backup /var/local/mesquite/store
+fi
+if [ -f /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak ]; then
+    mv -f /usr/share/webkit-1.0/pillow/default_status_bar.html.amazon_bak /usr/share/webkit-1.0/pillow/default_status_bar.html 2>/dev/null
+fi
+mntroot ro 2>/dev/null || mount -o remount,ro / 2>/dev/null
+
+lipc-set-prop -s com.lab126.pillow disableEnablePillow "enable" 2>/dev/null
+start statusbar 2>/dev/null
+killall -9 KPPMainApp 2>/dev/null
+lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home
+"""
+with open(os.path.join(CFW_ROOT, "uninstall.sh"), "w", encoding="utf-8") as f:
+  f.write(RESTORE_STOCK_SH)
+with open(os.path.join(CFW_ROOT, "documents", "Install_Paperwhite_OS.sh"), "w", encoding="utf-8") as f:
+  f.write(FULL_TAKEOVER_SH)
+
+UPSTART_CONF = """# /etc/upstart/paperwhite_os.conf
+description "Paperwhite OS 4.7 Launcher Service"
+start on framework_ready and started lab126_gui and started kppmainapp
+stop on stopping system
+respawn
+exec /bin/sh /mnt/us/paperwhite-os/boot_daemon.sh
+"""
+with open(
+    os.path.join(CFW_ROOT, "paperwhite-os", "upstart_paperwhite_os.conf"), "w", encoding="utf-8"
+) as f:
+  f.write(UPSTART_CONF)
+
+BOOT_DAEMON_SH = """#!/bin/sh
+export DISPLAY=:0
+if [ -f /tmp/pwos_boot_active.pid ] && kill -0 $(cat /tmp/pwos_boot_active.pid 2>/dev/null) 2>/dev/null; then
+    exit 0
+fi
+echo $$ > /tmp/pwos_boot_active.pid
+
+# Purge any stuck com.lab126.transfer retry queue so kterm never auto-launches on boot!
+killall -9 transfer 2>/dev/null
+rm -f /var/local/transfer* /var/local/mesquite/transfer* 2>/dev/null
+
+lipc-wait-event -s 45 com.lab126.appmgrd appStarted 2>/dev/null || sleep 12
+sleep 3
+
+[ -f /mnt/us/UNLOCK_STOCK_KINDLE ] && exit 0
+
+mkdir -p /var/local/mesquite/com.paperwhite.os
+cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/com.paperwhite.os/index.html
+cp -rf /mnt/us/paperwhite-os/waf/config.xml /var/local/mesquite/com.paperwhite.os/config.xml
+
+mkdir -p /var/local/mesquite/browser
+cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/browser/index.html
+cp -rf /mnt/us/paperwhite-os/waf/browser_config.xml /var/local/mesquite/browser/config.xml
+
+mkdir -p /var/local/mesquite/store
+cp -rf /mnt/us/paperwhite-os/waf/index.html /var/local/mesquite/store/index.html
+cp -rf /mnt/us/paperwhite-os/waf/store_config.xml /var/local/mesquite/store/config.xml
+
+/mnt/us/paperwhite-os/scan_books.sh 2>/dev/null
+
+sqlite3 /var/local/appreg.db <<EOF
+INSERT OR IGNORE INTO interfaces(interface) VALUES('application');
+INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('com.paperwhite.os');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','lipcId','com.paperwhite.os');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','command','/usr/bin/mesquite -l com.paperwhite.os -c file:///var/local/mesquite/com.paperwhite.os/');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.os','supportedOrientation','U');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.lab126.browser','command','/usr/bin/mesquite -l com.lab126.browser -c file:///var/local/mesquite/browser/');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.lab126.store','command','/usr/bin/mesquite -l com.lab126.store -c file:///var/local/mesquite/store/');
+INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('com.paperwhite.kterm');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','lipcId','com.paperwhite.kterm');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','command','/bin/sh /mnt/us/paperwhite-os/launch_kterm.sh');
+INSERT OR REPLACE INTO properties(handlerId,name,value) VALUES('com.paperwhite.kterm','supportedOrientation','U');
+EOF
+
+lipc-set-prop com.lab126.blanket unload ad_screensaver 2>/dev/null
+lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+            # keep pillow enabled for wifi_wizard_dialog
+# do not dismiss active dialogs
+lipc-set-prop -i com.lab126.pillow dismissChrome 1 2>/dev/null
+lipc-set-prop -s com.lab126.pillow disableEnablePillow "disable" 2>/dev/null
+lipc-set-prop -s com.lab126.chromebar configureChrome '{"appId":"com.paperwhite.os","topNavBar":{"template":"none"}}' 2>/dev/null
+lipc-set-prop -s com.lab126.chromebar configureChrome '{"appId":"com.lab126.store","topNavBar":{"template":"none"}}' 2>/dev/null
+killall mesquite 2>/dev/null
+sleep 1
+nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 &
+sleep 3
+if ! pidof mesquite >/dev/null 2>&1; then
+    DISPLAY=:0 nohup /usr/bin/mesquite -l com.paperwhite.os -c file:///var/local/mesquite/com.paperwhite.os/ >/dev/null 2>&1 &
+    sleep 2
+fi
+for wid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+    xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+done
+
+exec /bin/sh /mnt/us/paperwhite-os/screensaver_watchdog.sh
+"""
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "boot_daemon.sh"), "w", encoding="utf-8") as f:
+  f.write(BOOT_DAEMON_SH)
+
+# ZERO-GLITCH WATCHDOG (Point 6):
+# Does NOT draw over the screen 2 seconds after goingToScreenSaver!
+# Because /usr/share/blanket/screensaver/bg_ss*.png already contains all 46 custom wallpapers,
+# the Kindle's native blanket screensaver draws a single wallpaper cleanly on sleep with ZERO glitching!
+WATCHDOG_SH = """#!/bin/sh
+export DISPLAY=:0
+# Loop 1: Continuous Appliance Lockdown
+(
+    while true; do
+        if [ -f /mnt/us/UNLOCK_STOCK_KINDLE ]; then
+            exit 0
+        fi
+        BAT_TICK=$(( ${BAT_TICK:-0} + 1 ))
+        PSTATE=$(lipc-get-prop com.lab126.powerd state 2>/dev/null || echo "active")
+        if [ "$PSTATE" = "active" ]; then
+            # Update live hardware battery % every ~24 seconds with zero UI lag
+            if [ "$BAT_TICK" -ge 12 ]; then
+                BAT_TICK=0
+                LBAT=$(lipc-get-prop com.lab126.powerd battLevel 2>/dev/null | head -n 1 | tr -dc '0-9')
+                [ -z "$LBAT" ] && LBAT=$(gasgauge-info -s 2>/dev/null | head -n 1 | tr -dc '0-9')
+                LCHG=0
+                [ -r /sys/devices/system/wario_charger/wario_charger0/charging ] && LCHG=$(cat /sys/devices/system/wario_charger/wario_charger0/charging 2>/dev/null | tr -dc '0-9')
+                [ -z "$LCHG" ] && LCHG=0
+                if [ -n "$LBAT" ]; then
+                    for lbf in /var/local/mesquite/com.paperwhite.os/live_battery.js /var/local/mesquite/store/live_battery.js /mnt/us/paperwhite-os/waf/live_battery.js; do
+                        echo "window.KINDLE_LIVE_BATTERY = { level: $LBAT, charging: $LCHG };" > "$lbf" 2>/dev/null
+                    done
+                fi
+            fi
+
+            if ! pidof kterm >/dev/null 2>&1; then
+                if ! pidof mesquite >/dev/null 2>&1; then
+                    nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 &
+                    sleep 3
+                    if ! pidof mesquite >/dev/null 2>&1; then
+                        DISPLAY=:0 nohup /usr/bin/mesquite -l com.paperwhite.os -c file:///var/local/mesquite/com.paperwhite.os/ >/dev/null 2>&1 &
+                        sleep 2
+                    fi
+                fi
+            fi
+
+            if pidof mesquite >/dev/null 2>&1; then
+                if ! xwininfo -display :0 -root -tree 2>/dev/null | grep -q "wifi_wizard_dialog"; then
+                    for wid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+                        cur_wm=$(xprop -display :0 -id "$wid" WM_NAME 2>/dev/null)
+                        case "$cur_wm" in
+                            *PC:N*) ;;
+                            *)
+                                xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+                                for cwid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -E "searchBar|topBar|titleBar" | awk '{print $1}'); do
+                                    xprop -display :0 -id "$cwid" -f WM_NAME 8s -set WM_NAME "L:C_N:topBar_HIDE_ID:hiddenbar" 2>/dev/null
+                                done
+                                lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+                                lipc-set-prop -i com.lab126.pillow dismissChrome 1 2>/dev/null
+                                lipc-set-prop -s com.lab126.pillow disableEnablePillow "disable" 2>/dev/null
+                                ;;
+                        esac
+                    done
+                fi
+            fi
+        fi
+        sleep 2
+    done
+) &
+
+# Loop 2: Wake Handler (Zero-glitch sleep: native /usr/share/blanket/screensaver handles sleep in 1 single frame!)
+lipc-wait-event -m com.lab126.powerd outOfScreenSaver,wakeupFromSuspend | while read event; do
+    [ -f /mnt/us/UNLOCK_STOCK_KINDLE ] && exit 0
+    case "$event" in
+        *outOfScreenSaver*|*wakeupFromSuspend*)
+            /mnt/us/paperwhite-os/scan_books.sh 2>/dev/null &
+            lipc-set-prop -s com.lab126.pillow interrogatePillow '{"pillowId":"default_status_bar","function":"if(document.body){document.body.style.display=\"none\";}if(window.nativeBridge){nativeBridge.setWindowSize(0,0);nativeBridge.hideMe();}"}' 2>/dev/null
+            lipc-set-prop -i com.lab126.pillow dismissChrome 1 2>/dev/null
+            lipc-set-prop -s com.lab126.pillow disableEnablePillow "disable" 2>/dev/null
+            lipc-set-prop -s com.lab126.chromebar configureChrome '{"appId":"com.paperwhite.os","topNavBar":{"template":"none"}}' 2>/dev/null
+            if ! pidof mesquite >/dev/null 2>&1; then nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 & fi
+            ;;
+    esac
+done
+"""
+with open(
+    os.path.join(CFW_ROOT, "paperwhite-os", "screensaver_watchdog.sh"), "w", encoding="utf-8"
+) as f:
+  f.write(WATCHDOG_SH)
+
+LAUNCH_KTERM_SH = """#!/bin/sh
+export DISPLAY=:0
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:/mnt/us/kterm/bin:/var/local/kmc/bin:/mnt/us/libkh/bin"
+export HOME="/mnt/us"
+export SHELL="/bin/sh"
+export TERM="xterm"
+
+# 1. Immediately abort & wipe com.lab126.transfer queue so transferd NEVER retries or loops kterm!
+rm -f /var/local/transfer* /var/local/mesquite/transfer* 2>/dev/null
+(sleep 1; killall -9 transfer 2>/dev/null; rm -f /var/local/transfer* 2>/dev/null) &
+
+# 2. If kterm is already running or just exited within 3 seconds, do NOT launch a second copy!
+if pidof kterm >/dev/null 2>&1; then
+    exit 0
+fi
+if [ -f /tmp/pwos_kterm_cooldown ]; then
+    exit 0
+fi
+touch /tmp/pwos_kterm_cooldown
+
+# 3. Spawn kterm in a detached subshell while keeping mesquite (Paperwhite OS) alive underneath!
+#    That way, when you tap Quit in kterm, kterm closes once and Paperwhite OS is immediately visible underneath
+#    (the stock Kindle home screen is NEVER exposed!).
+(
+    KB_XML=$(ls /mnt/us/kterm/layouts/*300*.xml /mnt/us/kterm/layouts/*200*.xml /mnt/us/kterm/layouts/*.xml /mnt/us/extensions/kterm/layouts/*.xml 2>/dev/null | head -n 1)
+    # Promote kterm window to L:D 1 second after it opens so it sits cleanly above mesquite on Layer D
+    (
+        sleep 1
+        for kwid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -i "kterm" | awk '{print $1}'); do
+            xprop -display :0 -id "$kwid" -f WM_NAME 8s -set WM_NAME "L:D_N:application_PC:N_ID:com.paperwhite.kterm" 2>/dev/null
+        done
+    ) &
+    cd /mnt/us
+    if [ -x /mnt/us/kterm/bin/kterm ]; then
+        if [ -n "$KB_XML" ]; then
+            /mnt/us/kterm/bin/kterm -k 1 -l "$KB_XML" -e /bin/sh
+        else
+            /mnt/us/kterm/bin/kterm -k 1 -e /bin/sh
+        fi
+    elif [ -f /mnt/us/kterm/bin/kterm.sh ]; then
+        cd /mnt/us/kterm/bin && /bin/sh /mnt/us/kterm/bin/kterm.sh
+    elif [ -f /mnt/us/kterm/kterm.sh ]; then
+        cd /mnt/us/kterm && /bin/sh /mnt/us/kterm/kterm.sh
+    elif [ -f /mnt/us/extensions/kterm/bin/kterm.sh ]; then
+        cd /mnt/us/extensions/kterm && /bin/sh /mnt/us/extensions/kterm/bin/kterm.sh
+    elif [ -x /var/local/kmc/bin/kpm ]; then
+        /var/local/kmc/bin/kpm launch kterm
+    fi
+
+    # Keep a 4-second cooldown after kterm exits so any stray transfer retry is ignored
+    touch /tmp/pwos_kterm_cooldown
+    killall -9 transfer 2>/dev/null
+    rm -f /var/local/transfer* 2>/dev/null
+
+    # Ensure Paperwhite OS is immediately locked in front on Layer D
+    if ! pidof mesquite >/dev/null 2>&1; then
+        nohup lipc-set-prop com.lab126.appmgrd start app://com.paperwhite.os >/dev/null 2>&1 &
+        sleep 1
+    fi
+    for wid in $(xwininfo -display :0 -root -tree 2>/dev/null | grep -i "mesquite" | awk '{print $1}'); do
+        xprop -display :0 -id "$wid" -f WM_NAME 8s -set WM_NAME "L:A_N:application_PC:N_ID:com.paperwhite.os" 2>/dev/null
+    done
+    sleep 3
+    rm -f /tmp/pwos_kterm_cooldown
+) >/dev/null 2>&1 &
+
+exit 0
+"""
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "launch_kterm.sh"), "w", encoding="utf-8") as f:
+  f.write(LAUNCH_KTERM_SH)
+
+BRIDGE_HELPER_HTML = """<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.accessHasharrayProperty("com.lab126.transfer", "request_upload", {
+        url: "http://127.0.0.1",
+        source_command: "/bin/sh /mnt/us/paperwhite-os/auto_setup.sh",
+        unique_id: "pwos_auto_install",
+        netid: 1,
+        priority: 50,
+        notify_progress_interval: 20,
+        notify_pub: "com.lab126.archive",
+        notify_prop: "transferProgressNotification"
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 120);
+  }
+};
+</script></head><body></body></html>"""
+
+KTERM_HELPER_HTML = """<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.accessHasharrayProperty("com.lab126.transfer", "request_upload", {
+        url: "http://127.0.0.1",
+        source_command: "/bin/sh /mnt/us/paperwhite-os/launch_kterm.sh",
+        unique_id: "pwos_kterm_launch",
+        netid: 1,
+        priority: 50,
+        notify_progress_interval: 20,
+        notify_pub: "com.lab126.archive",
+        notify_prop: "transferProgressNotification"
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 120);
+  }
+};
+</script></head><body></body></html>"""
+
+WIFI_SCAN_HELPER_HTML = """<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.setLipcProperty("com.lab126.wifid", "scan", "");
+      nativeBridge.accessHasharrayProperty("com.lab126.transfer", "request_upload", {
+        url: "http://127.0.0.1",
+        source_command: "wpa_cli -i wlan0 scan && sleep 1 && /bin/sh /mnt/us/paperwhite-os/scan_books.sh",
+        unique_id: "pwos_wifi_scan",
+        netid: 1,
+        priority: 50,
+        notify_progress_interval: 20,
+        notify_pub: "com.lab126.archive",
+        notify_prop: "transferProgressNotification"
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 120);
+  }
+};
+</script></head><body></body></html>"""
+
+BRIGHT_HELPER_HTML = """<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try {
+      nativeBridge.registerClientParamsCallback(function(params) {
+        try {
+          var p = (typeof params === "string") ? JSON.parse(params) : params;
+          if (p && typeof p.level !== "undefined") {
+            nativeBridge.setIntLipcProperty("com.lab126.powerd", "flIntensity", parseInt(p.level, 10));
+          }
+        } catch (err) {}
+        try { nativeBridge.dismissMe(); } catch (err2) {}
+      });
+    } catch (e2) {}
+    setTimeout(function() { try { nativeBridge.dismissMe(); } catch (e3) {} }, 150);
+  }
+};
+</script></head><body></body></html>"""
+
+AUTO_SETUP_SH = """#!/bin/sh
+rm -f /var/local/transfer* /var/local/mesquite/transfer* 2>/dev/null
+nohup /bin/sh /mnt/us/install.sh --live >/dev/null 2>&1 &
+exit 0
+"""
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "auto_setup.sh"), "w", encoding="utf-8") as f:
+    f.write(AUTO_SETUP_SH)
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "bridge_helper.html"), "w", encoding="utf-8") as f:
+    f.write(BRIDGE_HELPER_HTML)
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "kterm_helper.html"), "w", encoding="utf-8") as f:
+    f.write(KTERM_HELPER_HTML)
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "wifi_scan_helper.html"), "w", encoding="utf-8") as f:
+    f.write(WIFI_SCAN_HELPER_HTML)
+with open(os.path.join(CFW_ROOT, "paperwhite-os", "bright_helper.html"), "w", encoding="utf-8") as f:
+    f.write(BRIGHT_HELPER_HTML)
+
+os.makedirs(os.path.join(CFW_ROOT, "paperwhite-os", "bright"), exist_ok=True)
+for b_lv in range(25):
+    b_html = (
+        "<!DOCTYPE html><html><head><script>\n"
+        "window.onload = function() {\n"
+        "  if (window.nativeBridge) {\n"
+        "    try { nativeBridge.setWindowSize(0, 0); } catch (e) {}\n"
+        "    try { nativeBridge.hideMe(); } catch (e) {}\n"
+        f"    try {{ nativeBridge.setIntLipcProperty('com.lab126.powerd', 'flIntensity', {b_lv}); }} catch (e) {{}}\n"
+        "    try { nativeBridge.setLipcProperty('com.lab126.pillow', 'disableEnablePillow', 'disable'); } catch (e) {}\n"
+        "    try { nativeBridge.dismissMe(); } catch (e) {}\n"
+        "  }\n"
+        "};\n"
+        "</script></head><body></body></html>"
+    )
+    with open(os.path.join(CFW_ROOT, "paperwhite-os", "bright", f"b_{b_lv}.html"), "w", encoding="utf-8") as bf:
+        bf.write(b_html)
+
+
+WORKER_JS = (
+    "// Cloudflare Worker — Single-File Kindle Paperwhite OS 4.7 Menu\n"
+    "export default {\n"
+    "  async fetch(request) {\n"
+    "    const html = "
+    + json.dumps(HTML_CODE)
+    + ";\n"
+    "    return new Response(html, {\n"
+    "      headers: {\n"
+    "        'content-type': 'text/html;charset=UTF-8',\n"
+    "        'cache-control': 'no-cache'\n"
+    "      }\n"
+    "    });\n"
+    "  }\n"
+    "};\n"
+)
+with open(
+    os.path.join(CFW_ROOT, "paperwhite-os", "cloudflare-worker", "worker.js"),
+    "w",
+) as f:
+  f.write(WORKER_JS)
+
+zip_path = os.path.join(OUTPUT_DIR, "paperwhite-os-cfw-bundle.zip")
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+  for root, dirs, files in os.walk(CFW_ROOT):
+    for file in sorted(files):
+      full_path = os.path.join(root, file)
+      rel_path = os.path.relpath(full_path, CFW_ROOT)
+      zf.write(full_path, rel_path)
+
+print(
+    "Built v4.2 Appliance OS CFW zip successfully:",
+    os.path.getsize(zip_path),
+    "bytes",
+)

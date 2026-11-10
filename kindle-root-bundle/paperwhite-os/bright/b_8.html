@@ -1,0 +1,11 @@
+<!DOCTYPE html><html><head><script>
+window.onload = function() {
+  if (window.nativeBridge) {
+    try { nativeBridge.setWindowSize(0, 0); } catch (e) {}
+    try { nativeBridge.hideMe(); } catch (e) {}
+    try { nativeBridge.setIntLipcProperty('com.lab126.powerd', 'flIntensity', 8); } catch (e) {}
+    try { nativeBridge.setLipcProperty('com.lab126.pillow', 'disableEnablePillow', 'disable'); } catch (e) {}
+    try { nativeBridge.dismissMe(); } catch (e) {}
+  }
+};
+</script></head><body></body></html>

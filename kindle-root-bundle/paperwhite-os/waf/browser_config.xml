@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<widget id="com.lab126.browser" version="4.2" viewmodes="application" xmlns="http://www.w3.org/ns/widgets" xmlns:kindle="http://kindle.amazon.com/ns/widget-extensions">
+    <name xml:lang="en">Paperwhite OS</name>
+    <description xml:lang="en">Pure Appliance Custom OS for Kindle Paperwhite 3</description>
+    <content src="index.html" />
+    <kindle:permissions>
+        <kindle:permission name="local-port-access" />
+        <kindle:permission name="download-allowed" />
+    </kindle:permissions>
+    <kindle:network>
+        <kindle:asset key="user-agent" value="Mozilla/5.0 (X11; U; Linux armv7l like Android; en-us) AppleWebKit/531.2+ (KHTML, like Gecko) Version/5.0 Safari/533.2+ Kindle/3.0+" />
+        <kindle:asset key="initialDNS" value="false" />
+        <kindle:asset key="maxConnections" value="6" />
+        <kindle:asset key="maxConnectionsPerHost" value="2" />
+        <kindle:asset key="overrideProxy" value="none" />
+        <kindle:asset key="enableCaching" value="false" />
+    </kindle:network>
+    <kindle:chrome>
+        <kindle:asset key="configureSearchBar" value="none" />
+    </kindle:chrome>
+    <kindle:gestures>
+        <kindle:param name="tap" value="yes" properties="fire_on_tap:1 max_updown_delta:0" />
+        <kindle:param name="swipe" value="yes" />
+    </kindle:gestures>
+    <feature name="http://kindle.amazon.com/apis" required="true">
+        <param name="appmgr" value="yes" />
+        <param name="net" value="yes" />
+        <param name="todo" value="yes" />
+        <param name="gestures" value="yes" />
+        <param name="chrome" value="yes" />
+        <param name="dev" value="yes" />
+        <param name="dconfig" value="yes" />
+        <param name="download" value="yes" />
+        <param name="messaging" value="yes" />
+        <param name="uitest" value="yes" />
+        <param name="popup" value="yes" />
+        <param name="bkgrnd" value="yes" />
+        <param name="localprefs" value="yes" />
+        <param name="device" value="yes" />
+        <param name="winmgrUtils" value="yes" />
+    </feature>
+    <kindle:messaging>
+        <kindle:app name="com.lab126.pillow" value="yes" />
+        <kindle:app name="com.lab126.chromebar" value="yes" />
+        <kindle:app name="com.lab126.appmgrd" value="yes" />
+        <kindle:app name="com.lab126.powerd" value="yes" />
+        <kindle:app name="com.lab126.winmgr" value="yes" />
+        <kindle:app name="com.lab126.mfa" value="yes" />
+        <kindle:app name="com.lab126.cmd" value="yes" />
+        <kindle:app name="com.lab126.wifid" value="yes" />
+    </kindle:messaging>
+    <kindle:resources>
+        <kindle:asset key="AllowHTTPSApplicationManifestCrossDomain" value="true" />
+        <kindle:asset key="LocalStorageQuota" value="26214400" />
+    </kindle:resources>
+    <kindle:settings>
+        <kindle:setting name="internetRequired" value="no" />
+        <kindle:setting name="saveContext" value="no" />
+        <kindle:setting name="minimumFontSize" value="0" />
+        <kindle:setting name="defaultFontSize" value="16" />
+        <kindle:setting name="defaultFontSize300" value="16" />
+        <kindle:setting name="defaultFontSize212" value="16" />
+        <kindle:setting name="defaultFontSize167" value="16" />
+        <kindle:setting name="enforce96DPI" value="no" />
+        <kindle:setting name="enableW3CStd" value="yes" />
+        <kindle:setting name="disable-wua-features" value="yes" />
+        <kindle:setting name="flattenFrames" value="yes" />
+    </kindle:settings>
+</widget>
