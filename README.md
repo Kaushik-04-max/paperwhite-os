@@ -63,6 +63,10 @@ The root `index.html` file is a standalone interactive demo of **Paperwhite OS v
 └── wallpapers-source/            # Original full-resolution artwork sources
 ```
 
+## Related Projects
+
+[**kindle-webapps**](https://github.com/Kaushik-04-max/kindle-webapps) — standalone companion repo with a synced-lyrics/now-playing/equaliser Cloudflare Worker and a 28-game offline arcade. Both also run on a completely stock, non-jailbroken Kindle, and are meant to be added as entries in this project's Home/Web hub.
+
 ## Rebuilding from Source
 
 To regenerate both `paperwhite_os_menu.html` (`index.html`) and `paperwhite-os-cfw-bundle.zip` after editing `builder/build_cfw.py`:
